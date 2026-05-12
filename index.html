@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIDI Hub — Router</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a3d;
+    --accent: #7c3aed;
+    --accent2: #06b6d4;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f59e0b;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --input-color: #7c3aed;
+    --output-color: #06b6d4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 10;
+    gap: 12px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .status-bar {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  .btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent); border-color: var(--accent); }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* SVG Canvas for connections */
+  #canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Columns */
+  .column {
+    width: 220px;
+    flex-shrink: 0;
+    padding: 16px 12px;
+    overflow-y: auto;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .col-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 8px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .col-title .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .inputs-col .dot { background: var(--input-color); }
+  .outputs-col .dot { background: var(--output-color); }
+
+  /* Device Cards */
+  .device-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    transition: all 0.2s;
+    cursor: default;
+  }
+  .device-card:hover { border-color: var(--accent); }
+
+  .device-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .device-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .inputs-col .device-icon { background: rgba(124,58,237,0.2); }
+  .outputs-col .device-icon { background: rgba(6,182,212,0.2); }
+
+  .device-name {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .activity-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .activity-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 2px;
+    transition: width 0.05s;
+  }
+  .inputs-col .activity-fill { background: var(--input-color); }
+  .outputs-col .activity-fill { background: var(--output-color); }
+
+  .port-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .port-label {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .port-btn {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid;
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+  }
+  .inputs-col .port-btn {
+    border-color: var(--input-color);
+    color: var(--input-color);
+  }
+  .inputs-col .port-btn:hover, .inputs-col .port-btn.active {
+    background: var(--input-color);
+    color: white;
+    box-shadow: 0 0 10px rgba(124,58,237,0.5);
+  }
+  .outputs-col .port-btn {
+    border-color: var(--output-color);
+    color: var(--output-color);
+  }
+  .outputs-col .port-btn:hover, .outputs-col .port-btn.active {
+    background: var(--output-color);
+    color: white;
+    box-shadow: 0 0 10px rgba(6,182,212,0.5);
+  }
+
+  /* Center connections panel */
+  .center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 60px 20px 20px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .center-hint {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.8;
+    max-width: 300px;
+  }
+  .center-hint strong { color: var(--text); }
+
+  /* Connections list */
+  #connections-list {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    min-width: 320px;
+  }
+
+  .conn-tag {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    animation: fadeIn 0.3s ease;
+  }
+  .conn-tag .conn-from { color: var(--input-color); font-weight: 600; }
+  .conn-tag .conn-arrow { color: var(--text-muted); }
+  .conn-tag .conn-to { color: var(--output-color); font-weight: 600; }
+  .conn-tag .remove-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--red);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    pointer-events: all;
+  }
+  .conn-tag .remove-btn:hover { opacity: 1; }
+
+  .no-devices {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 20px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    margin: 8px;
+  }
+
+  .midi-log {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 120px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    overflow-y: auto;
+    z-index: 20;
+    display: none;
+  }
+  .midi-log.visible { display: block; }
+  .log-entry { color: var(--text-muted); padding: 1px 0; }
+  .log-entry.note-on { color: var(--green); }
+  .log-entry.note-off { color: var(--red); }
+  .log-entry.cc { color: var(--orange); }
+
+  .toggle-log {
+    position: fixed;
+    bottom: 12px;
+    right: 16px;
+    z-index: 30;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .connecting-hint {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 30;
+    display: none;
+    animation: pulse 1.5s infinite;
+  }
+  .connecting-hint.visible { display: block; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎛</div>
+    MIDI Hub
+  </div>
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Sin acceso MIDI</span>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button class="btn" onclick="refreshDevices()">↺ Refrescar</button>
+    <button class="btn primary" onclick="requestMidi()">Conectar MIDI</button>
+  </div>
+</header>
+
+<div class="connecting-hint" id="connecting-hint">
+  Seleccioná una SALIDA para completar la conexión · ESC para cancelar
+</div>
+
+<div class="main">
+  <svg id="canvas"></svg>
+
+  <!-- INPUTS -->
+  <div class="column inputs-col">
+    <div class="col-title">
+      <div class="dot"></div>
+      Entradas MIDI
+    </div>
+    <div id="inputs-list">
+      <div class="no-devices">Presioná "Conectar MIDI"</div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="center">
+    <div class="center-hint" id="center-hint">
+      <strong>¿Cómo usar?</strong><br>
+      1. Presioná <strong>Conectar MIDI</strong><br>
+      2. Tocá el botón ● en una entrada<br>
+      3. Tocá el botón ● en una salida<br>
+      ¡La conexión se activa sola!
+    </div>
+  </div>
+
+  <!-- OUTPUTS -->
+  <div class="column outputs-col">
+    <div class="col-title">
+      <div class="dot"></div>
+      Salidas MIDI
+    </div>
+    <div id="outputs-list">
+      <div class="no-devices">Presioná "Conectar MIDI"</div>
+    </div>
+  </div>
+
+  <!-- Connections -->
+  <div id="connections-list"></div>
+</div>
+
+<button class="btn toggle-log" onclick="toggleLog()">📋 Log MIDI</button>
+<div class="midi-log" id="midi-log"></div>
+
+<script>
+let midiAccess = null;
+let inputs = new Map();
+let outputs = new Map();
+let connections = []; // [{inputId, outputId}]
+let pendingInput = null;
+let logVisible = false;
+let logEntries = 0;
+
+function toggleLog() {
+  logVisible = !logVisible;
+  document.getElementById('midi-log').classList.toggle('visible', logVisible);
+}
+
+function addLog(msg, type = '') {
+  if (logEntries > 200) {
+    document.getElementById('midi-log').innerHTML = '';
+    logEntries = 0;
+  }
+  const el = document.createElement('div');
+  el.className = 'log-entry ' + type;
+  const now = new Date();
+  el.textContent = `[${now.toLocaleTimeString()}] ${msg}`;
+  document.getElementById('midi-log').appendChild(el);
+  document.getElementById('midi-log').scrollTop = 9999;
+  logEntries++;
+}
+
+async function requestMidi() {
+  try {
+    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+    document.getElementById('status-dot').classList.add('connected');
+    document.getElementById('status-text').textContent = 'MIDI Conectado';
+    midiAccess.onstatechange = () => refreshDevices();
+    refreshDevices();
+    addLog('✓ Acceso MIDI obtenido');
+  } catch (e) {
+    alert('No se pudo acceder al MIDI: ' + e.message + '\n\nAsegurate de usar Chrome y conectar los dispositivos antes.');
+    addLog('✗ Error: ' + e.message);
+  }
+}
+
+function refreshDevices() {
+  if (!midiAccess) return;
+  inputs.clear();
+  outputs.clear();
+  midiAccess.inputs.forEach(i => inputs.set(i.id, i));
+  midiAccess.outputs.forEach(o => outputs.set(o.id, o));
+  renderDevices();
+  // Reattach existing connections
+  connections = connections.filter(c => inputs.has(c.inputId) && outputs.has(c.outputId));
+  attachListeners();
+  drawConnections();
+  renderConnectionTags();
+}
+
+function renderDevices() {
+  const il = document.getElementById('inputs-list');
+  const ol = document.getElementById('outputs-list');
+
+  if (inputs.size === 0) {
+    il.innerHTML = '<div class="no-devices">Sin entradas detectadas</div>';
+  } else {
+    il.innerHTML = '';
+    inputs.forEach(inp => {
+      il.appendChild(createCard(inp, 'input'));
+    });
+  }
+
+  if (outputs.size === 0) {
+    ol.innerHTML = '<div class="no-devices">Sin salidas detectadas</div>';
+  } else {
+    ol.innerHTML = '';
+    outputs.forEach(out => {
+      ol.appendChild(createCard(out, 'output'));
+    });
+  }
+}
+
+function createCard(device, type) {
+  const card = document.createElement('div');
+  card.className = 'device-card';
+  card.id = 'card-' + device.id;
+
+  const isConnected = connections.some(c =>
+    type === 'input' ? c.inputId === device.id : c.outputId === device.id
+  );
+
+  const emoji = type === 'input' ? '🎹' : '🎛';
+  const shortName = device.name.length > 30 ? device.name.substring(0, 28) + '…' : device.name;
+
+  card.innerHTML = `
+    <div class="device-header">
+      <div class="device-icon">${emoji}</div>
+      <div class="device-name">${shortName}</div>
+    </div>
+    <div class="activity-bar">
+      <div class="activity-fill" id="act-${device.id}"></div>
+    </div>
+    <div class="port-row">
+      <span class="port-label">${type === 'input' ? 'OUT →' : '→ IN'}</span>
+      <button class="port-btn ${isConnected ? 'active' : ''}" id="port-${device.id}"
+        onclick="${type === 'input' ? 'selectInput' : 'selectOutput'}('${device.id}')"
+        title="${type === 'input' ? 'Seleccionar como entrada' : 'Seleccionar como salida'}">●</button>
+    </div>
+  `;
+  return card;
+}
+
+function selectInput(id) {
+  if (pendingInput === id) {
+    pendingInput = null;
+    document.getElementById('connecting-hint').classList.remove('visible');
+    document.querySelectorAll('.port-btn').forEach(b => b.style.animation = '');
+    return;
+  }
+  pendingInput = id;
+  document.getElementById('connecting-hint').classList.add('visible');
+  // Highlight the selected button
+  document.querySelectorAll('.port-btn').forEach(b => b.style.animation = '');
+  const btn = document.getElementById('port-' + id);
+  if (btn) btn.style.animation = 'pulse 0.8s infinite';
+}
+
+function selectOutput(id) {
+  if (!pendingInput) return;
+  // Check if already connected
+  const exists = connections.find(c => c.inputId === pendingInput && c.outputId === id);
+  if (exists) {
+    alert('Esta conexión ya existe.');
+    return;
+  }
+  connections.push({ inputId: pendingInput, outputId: id });
+  addLog(`Conexión: ${inputs.get(pendingInput)?.name} → ${outputs.get(id)?.name}`);
+  pendingInput = null;
+  document.getElementById('connecting-hint').classList.remove('visible');
+  document.querySelectorAll('.port-btn').forEach(b => b.style.animation = '');
+  attachListeners();
+  drawConnections();
+  renderConnectionTags();
+  renderDevices(); // refresh active state
+}
+
+function removeConnection(inputId, outputId) {
+  connections = connections.filter(c => !(c.inputId === inputId && c.outputId === outputId));
+  addLog(`Desconectado: ${inputs.get(inputId)?.name} → ${outputs.get(outputId)?.name}`);
+  attachListeners();
+  drawConnections();
+  renderConnectionTags();
+  renderDevices();
+}
+
+function attachListeners() {
+  if (!midiAccess) return;
+  // Remove all handlers first
+  midiAccess.inputs.forEach(inp => { inp.onmidimessage = null; });
+  // Re-attach based on connections
+  connections.forEach(c => {
+    const inp = inputs.get(c.inputId);
+    const out = outputs.get(c.outputId);
+    if (!inp || !out) return;
+    inp.onmidimessage = (e) => handleMidi(e, c.inputId, c.outputId);
+  });
+}
+
+function handleMidi(event, inputId, outputId) {
+  const data = event.data;
+  const out = outputs.get(outputId);
+  if (out) {
+    out.send(data);
+  }
+
+  // Flash activity
+  flash(inputId);
+  flash(outputId);
+
+  // Log
+  const status = data[0] & 0xF0;
+  const ch = (data[0] & 0x0F) + 1;
+  if (status === 0x90 && data[2] > 0) {
+    addLog(`Note ON  ch${ch} note=${data[1]} vel=${data[2]} | ${inputs.get(inputId)?.name}`, 'note-on');
+  } else if (status === 0x80 || (status === 0x90 && data[2] === 0)) {
+    addLog(`Note OFF ch${ch} note=${data[1]}`, 'note-off');
+  } else if (status === 0xB0) {
+    addLog(`CC ch${ch} cc=${data[1]} val=${data[2]}`, 'cc');
+  }
+}
+
+let flashTimers = {};
+function flash(deviceId) {
+  const el = document.getElementById('act-' + deviceId);
+  if (!el) return;
+  el.style.width = '100%';
+  clearTimeout(flashTimers[deviceId]);
+  flashTimers[deviceId] = setTimeout(() => { el.style.width = '0%'; }, 150);
+}
+
+function drawConnections() {
+  const svg = document.getElementById('canvas');
+  svg.innerHTML = '';
+
+  // Add gradient defs
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+  grad.id = 'lineGrad';
+  grad.setAttribute('x1', '0%'); grad.setAttribute('y1', '0%');
+  grad.setAttribute('x2', '100%'); grad.setAttribute('y2', '0%');
+  const s1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+  s1.setAttribute('offset', '0%'); s1.setAttribute('stop-color', '#7c3aed');
+  const s2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+  s2.setAttribute('offset', '100%'); s2.setAttribute('stop-color', '#06b6d4');
+  grad.appendChild(s1); grad.appendChild(s2);
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  connections.forEach(c => {
+    const fromBtn = document.getElementById('port-' + c.inputId);
+    const toBtn = document.getElementById('port-' + c.outputId);
+    if (!fromBtn || !toBtn) return;
+
+    const r1 = fromBtn.getBoundingClientRect();
+    const r2 = toBtn.getBoundingClientRect();
+    const x1 = r1.right;
+    const y1 = r1.top + r1.height / 2;
+    const x2 = r2.left;
+    const y2 = r2.top + r2.height / 2;
+    const cx = (x1 + x2) / 2;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
+    path.setAttribute('stroke', 'url(#lineGrad)');
+    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('opacity', '0.8');
+    svg.appendChild(path);
+
+    // Dot at start
+    const d1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    d1.setAttribute('cx', x1); d1.setAttribute('cy', y1); d1.setAttribute('r', '4');
+    d1.setAttribute('fill', '#7c3aed');
+    svg.appendChild(d1);
+
+    // Dot at end
+    const d2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    d2.setAttribute('cx', x2); d2.setAttribute('cy', y2); d2.setAttribute('r', '4');
+    d2.setAttribute('fill', '#06b6d4');
+    svg.appendChild(d2);
+  });
+}
+
+function renderConnectionTags() {
+  const list = document.getElementById('connections-list');
+  list.innerHTML = '';
+  if (connections.length === 0) return;
+
+  connections.forEach(c => {
+    const inp = inputs.get(c.inputId);
+    const out = outputs.get(c.outputId);
+    if (!inp || !out) return;
+    const shorten = n => n.length > 22 ? n.substring(0, 20) + '…' : n;
+    const tag = document.createElement('div');
+    tag.className = 'conn-tag';
+    tag.innerHTML = `
+      <span class="conn-from">▶ ${shorten(inp.name)}</span>
+      <span class="conn-arrow">→</span>
+      <span class="conn-to">${shorten(out.name)}</span>
+      <button class="remove-btn" onclick="removeConnection('${c.inputId}','${c.outputId}')">✕</button>
+    `;
+    list.appendChild(tag);
+  });
+}
+
+// Redraw lines on resize
+window.addEventListener('resize', drawConnections);
+
+// ESC to cancel pending
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && pendingInput) {
+    pendingInput = null;
+    document.getElementById('connecting-hint').classList.remove('visible');
+    document.querySelectorAll('.port-btn').forEach(b => b.style.animation = '');
+  }
+});
+
+// Check Web MIDI support
+if (!navigator.requestMIDIAccess) {
+  document.getElementById('status-text').textContent = 'Web MIDI no soportado — Usá Chrome';
+} else {
+  document.getElementById('status-text').textContent = 'Listo — Presioná Conectar MIDI';
+}
+</script>
+</body>
+</html>
