@@ -152,15 +152,12 @@ if('serviceWorker' in navigator) {
       registration.unregister();
     }
   });
-  // Registrar el nuevo (que no hace caché agresivo)
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
-}
-
-// ── State ──────────────────────────────────────────
+  // Registrar el nuevo (que no hace caché// ── State ──────────────────────────────────────────
 let midiAccess=null, inputs=new Map(), outputs=new Map();
 let connections=[], pendingInput=null, logVisible=false, logEntries=0;
 let wakeLock=null, audioCtx=null, silentSource=null, bgActive=false;
 let deferredInstall=null;
+let portLabels = new Map(); // Almacena el subLabel de cada puerto para usar en tags/logs
 
 // ── PWA Install ────────────────────────────────────
 window.addEventListener('beforeinstallprompt', e=>{
@@ -236,7 +233,7 @@ function updatePresetSelect() {
     const select = document.getElementById('preset-select');
     if(!window.MidiHubExtras) return;
     const presets = window.MidiHubExtras.loadPresets();
-    select.innerHTML = '<option value="">Presets...</option>';
+    select.innerHTML = `<option value="">${lastLoadedPreset ? '[ ' + lastLoadedPreset + ' ]' : 'Cargar...'}</option>`;
     Object.keys(presets).forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
@@ -249,12 +246,17 @@ let lastLoadedPreset = "";
 
 function setActivePresetName(name) {
     lastLoadedPreset = name;
-    document.getElementById('active-preset-label').textContent = name ? `📄 ${name}` : '';
+    updatePresetSelect(); // Refrescar el option default para mostrar el nombre
 }
 
 document.getElementById('preset-select').onchange = (e) => {
     const name = e.target.value;
     if (!name) return;
+    
+    // Check if preset exists to prevent phantom load errors
+    const presets = window.MidiHubExtras.loadPresets();
+    if (!presets[name]) return;
+
     const resolved = window.MidiHubExtras.resolvePreset(name, inputs, outputs);
     if (resolved.length > 0) {
         connections = resolved;
@@ -264,15 +266,23 @@ document.getElementById('preset-select').onchange = (e) => {
         addLog(`✓ Cargado: ${name}`);
         setActivePresetName(name);
     } else {
-        alert("No se pudieron reconectar los equipos del preset. ¿Están enchufados?");
+        alert(`No se pudieron reconectar los equipos del preset "${name}". ¿Están todos los dispositivos enchufados?`);
     }
     // Resetear el selector para poder volver a clickear el mismo preset
     e.target.value = "";
 };
 
 function uiSavePreset() {
-    const name = prompt("Nombre para este ruteo:");
+    const name = prompt("Nombre para este ruteo:", lastLoadedPreset);
     if (!name) return;
+    
+    if(window.MidiHubExtras) {
+        const presets = window.MidiHubExtras.loadPresets();
+        if(presets[name]) {
+            if(!confirm(`El preset "${name}" ya existe. ¿Deseas sobreescribirlo?`)) return;
+        }
+    }
+
     window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
     updatePresetSelect();
     addLog(`✓ Preset "${name}" guardado`);
@@ -280,15 +290,21 @@ function uiSavePreset() {
 }
 
 function uiDeletePreset() {
-    if (!lastLoadedPreset) {
-        alert("Primero carga el preset que querés borrar desde la lista desplegable, y luego tocá este botón.");
-        return;
-    }
-    if (confirm(`¿Estás seguro de borrar definitivamente el preset "${lastLoadedPreset}"?`)) {
-        window.MidiHubExtras.deletePreset(lastLoadedPreset);
+    if(!window.MidiHubExtras) return;
+    const presets = Object.keys(window.MidiHubExtras.loadPresets());
+    if(presets.length === 0) { alert("No hay presets para borrar."); return; }
+    
+    const listStr = presets.map(p => "• " + p).join("\n");
+    const name = prompt("Escribí el nombre exacto del preset a borrar:\n\n" + listStr);
+    
+    if (!name) return;
+    if (!presets.includes(name)) { alert(`No existe el preset "${name}".`); return; }
+
+    if (confirm(`¿Estás seguro de borrar definitivamente el preset "${name}"?`)) {
+        window.MidiHubExtras.deletePreset(name);
         updatePresetSelect();
-        addLog(`🗑 Preset "${lastLoadedPreset}" borrado`);
-        setActivePresetName("");
+        addLog(`🗑 Preset "${name}" borrado`);
+        if (lastLoadedPreset === name) setActivePresetName("");
     }
 }
 
@@ -298,6 +314,7 @@ async function requestMidi(){
       connections = [];
       drawConnections(); renderConnectionTags(); renderDevices();
       addLog("⏹ Enlaces desconectados");
+      setActivePresetName("");
     }
     return; 
   }
@@ -336,6 +353,8 @@ function refreshDevices(){
 
 function renderDevices(){
   const il=document.getElementById('inputs-list'), ol=document.getElementById('outputs-list');
+  portLabels.clear(); // Limpiar el caché de etiquetas
+
   if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
   if(inputs.size===0){ il.innerHTML='<div class="no-devices">No hay fuentes</div>'; }
   else{ il.innerHTML=''; inputs.forEach(i=>il.appendChild(createCard(i,'input'))); }
@@ -360,6 +379,9 @@ function createCard(device,type){
     subLabel = info.sub;
     emoji = info.emoji || emoji;
   }
+  
+  // Guardar en caché para usar en logs y tags
+  portLabels.set(device.id, subLabel);
 
   card.innerHTML=`<div class="device-header"><div class="device-icon">${emoji}</div>
     <div style="display:flex;flex-direction:column; overflow:hidden">
@@ -387,7 +409,13 @@ function selectOutput(id){
   if(!pendingInput) return;
   if(connections.find(c=>c.inputId===pendingInput&&c.outputId===id)){ alert('Ya conectados.'); return; }
   connections.push({inputId:pendingInput,outputId:id});
-  addLog(`Ruta: ${inputs.get(pendingInput)?.name} → ${outputs.get(id)?.name}`);
+  
+  const inSub = portLabels.get(pendingInput) || '';
+  const outSub = portLabels.get(id) || '';
+  const inName = inputs.get(pendingInput)?.name;
+  const outName = outputs.get(id)?.name;
+  addLog(`Ruta: ${inName} ${inSub ? '('+inSub+')' : ''} → ${outName} ${outSub ? '('+outSub+')' : ''}`);
+  
   pendingInput=null;
   document.getElementById('connecting-hint').classList.remove('visible');
   document.querySelectorAll('.port-btn').forEach(b=>b.style.animation='');
@@ -396,7 +424,13 @@ function selectOutput(id){
 
 function removeConnection(inputId,outputId){
   connections=connections.filter(c=>!(c.inputId===inputId&&c.outputId===outputId));
-  addLog(`Corte: ${inputs.get(inputId)?.name} → ${outputs.get(outputId)?.name}`);
+  
+  const inSub = portLabels.get(inputId) || '';
+  const outSub = portLabels.get(outputId) || '';
+  const inName = inputs.get(inputId)?.name;
+  const outName = outputs.get(outputId)?.name;
+  addLog(`Corte: ${inName} ${inSub ? '('+inSub+')' : ''} → ${outName} ${outSub ? '('+outSub+')' : ''}`);
+  
   drawConnections(); renderConnectionTags(); renderDevices();
 }
 
@@ -420,15 +454,18 @@ function handleMidiEvent(event, inputId) {
     const out = outputs.get(outId);
     if (out) {
         out.send(data);
-        outNames.push(out.name);
+        const sub = portLabels.get(outId) || '';
+        outNames.push(sub ? `${out.name} (${sub})` : out.name);
     }
     flash('output', outId);
   });
   
   flash('input', inputId);
   
-  const inName = inputs.get(inputId)?.name || 'Unknown';
-  const routePrefix = `[${inName} → ${outNames.join(', ')}]`;
+  const inDev = inputs.get(inputId);
+  const inSub = portLabels.get(inputId) || '';
+  const inFull = inSub ? `${inDev?.name} (${inSub})` : (inDev?.name || 'Unknown');
+  const routePrefix = `[${inFull} → ${outNames.join(', ')}]`;
   
   const status = data[0] & 0xF0, ch = (data[0] & 0x0F) + 1;
   if(status===0x90&&data[2]>0) addLog(`${routePrefix} Note ON  ch${ch} note=${data[1]} vel=${data[2]}`,'note-on');
