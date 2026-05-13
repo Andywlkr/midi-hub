@@ -285,9 +285,9 @@ async function requestMidi(){
     document.getElementById('status-dot').classList.add('connected');
     document.getElementById('status-text').textContent='MIDI OK';
     
-    // Ocultar el botón conectar para evitar clicks duplicados que duplican eventos
+    // Deshabilitar visualmente el botón en vez de ocultarlo
     const btn = document.querySelector('button[onclick="requestMidi()"]');
-    if(btn) btn.style.display = 'none';
+    if(btn) { btn.classList.add('active'); btn.textContent = '✔ Conectado'; btn.style.pointerEvents = 'none'; }
 
     midiAccess.onstatechange=()=>refreshDevices();
     refreshDevices();
@@ -305,7 +305,8 @@ function refreshDevices(){
   if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
   midiAccess.inputs.forEach(i=>{
     inputs.set(i.id,i);
-    i.onmidimessage = handleMidiEvent;
+    // Usar closure para aislar y fijar el ID del puerto, evitando que Android pierda el event.currentTarget
+    i.onmidimessage = (e) => handleMidiEvent(e, i.id);
   });
   midiAccess.outputs.forEach(o=>outputs.set(o.id,o));
   connections=connections.filter(c=>inputs.has(c.inputId)&&outputs.has(c.outputId));
@@ -381,15 +382,13 @@ function removeConnection(inputId,outputId){
 let lastMidiTime = 0;
 let lastMidiData = '';
 
-function handleMidiEvent(event) {
-  // Evitar duplicados exactos en menos de 2ms (pasa en Android o por clicks múltiples)
+function handleMidiEvent(event, inputId) {
   const now = performance.now();
-  const dataStr = event.data[0] + ',' + event.data[1] + ',' + event.data[2];
+  const dataStr = event.data.join(',');
   if (now - lastMidiTime < 2 && lastMidiData === dataStr) return;
   lastMidiTime = now;
   lastMidiData = dataStr;
 
-  const inputId = event.currentTarget.id;
   const outIds = connections.filter(c => c.inputId === inputId).map(c => c.outputId);
   
   if (outIds.length === 0) return; // No routing needed
