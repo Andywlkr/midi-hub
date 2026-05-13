@@ -30,12 +30,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .bg-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 .main{display:flex;flex:1;overflow:hidden;position:relative}
 #canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
-.column{width:200px;flex-shrink:0;padding:12px 10px;overflow-y:auto;z-index:2;display:flex;flex-direction:column;gap:6px}
+.column{width:35%; max-width:200px; padding:12px 10px; overflow-y:auto; z-index:2; display:flex; flex-direction:column; gap:6px}
 .col-title{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:4px 8px 6px;display:flex;align-items:center;gap:6px}
 .col-title .dot{width:6px;height:6px;border-radius:50%}
 .inputs-col .dot{background:#7c3aed}
 .outputs-col .dot{background:#06b6d4}
-.device-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;transition:all .2s}
+.device-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;transition:all .2s;position:relative;z-index:3}
 .device-card:hover{border-color:var(--accent)}
 .device-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .device-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
@@ -48,15 +48,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .outputs-col .activity-fill{background:#06b6d4}
 .port-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
 .port-label{font-size:9px;color:var(--text-muted)}
-.port-btn{width:20px;height:20px;border-radius:50%;border:2px solid;cursor:pointer;background:transparent;transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:7px}
+.port-btn{width:20px;height:20px;border-radius:50%;border:2px solid;cursor:pointer;background:var(--bg);transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:7px;z-index:10;position:relative}
 .inputs-col .port-btn{border-color:#7c3aed;color:#7c3aed}
 .inputs-col .port-btn:hover,.inputs-col .port-btn.active{background:#7c3aed;color:#fff;box-shadow:0 0 10px rgba(124,58,237,.5)}
 .outputs-col .port-btn{border-color:#06b6d4;color:#06b6d4}
 .outputs-col .port-btn:hover,.outputs-col .port-btn.active{background:#06b6d4;color:#fff;box-shadow:0 0 10px rgba(6,182,212,.5)}
-.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:50px 20px 20px;z-index:2;pointer-events:none}
-.center-hint{text-align:center;color:var(--text-muted);font-size:12px;line-height:1.8;max-width:280px}
+.center{flex:1; width:30%; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; padding:50px 10px 20px; z-index:2; pointer-events:none}
+.center-hint{text-align:center;color:var(--text-muted);font-size:11px;line-height:1.6;max-width:100%}
 .center-hint strong{color:var(--text)}
-#connections-list{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto;min-width:300px}
+#connections-list{position:relative; margin-top:20px; width:100%; display:flex; flex-direction:column; gap:5px; align-items:center; z-index:5; pointer-events:all}
 .conn-tag{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:10px;animation:fadeIn .3s ease}
 .conn-tag .conn-from{color:#7c3aed;font-weight:600}
 .conn-tag .conn-arrow{color:var(--text-muted)}
