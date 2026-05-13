@@ -20,7 +20,10 @@ function getFriendlyName(rawName) {
       return { name: info.name, sub: portLabel, emoji: info.emoji, raw: rawName };
     }
   }
-  return { name: rawName, sub: '(Desconocido)', emoji: '🎵', raw: rawName };
+  
+  if (window.portCounters[rawName] === undefined) window.portCounters[rawName] = 0;
+  const idx = window.portCounters[rawName]++;
+  return { name: rawName, sub: `Puerto ${idx + 1}`, emoji: '🎵', raw: rawName };
 }
 
 function resetPortCounters() { window.portCounters = {}; }
