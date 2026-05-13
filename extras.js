@@ -37,7 +37,7 @@ function loadPresets() {
   catch { return {}; }
 }
 
-function savePreset(name, connections, inputMap, outputMap) {
+function savePreset(name, connections, inputMap, outputMap, deviceFilters) {
   const presets = loadPresets();
   presets[name] = connections.map(c => {
     const inDev = inputMap.get(c.inputId);
@@ -53,7 +53,8 @@ function savePreset(name, connections, inputMap, outputMap) {
       inputName: inDev?.name || '',
       outputName: outDev?.name || '',
       inputIndex: inIndex,
-      outputIndex: outIndex
+      outputIndex: outIndex,
+      filter: deviceFilters[c.outputId] || null
     };
   });
   localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
@@ -68,8 +69,10 @@ function deletePreset(name) {
 function resolvePreset(name, inputMap, outputMap) {
   const presets = loadPresets();
   const preset = presets[name];
-  if (!preset) return [];
-  const resolved = [];
+  if (!preset) return { connections: [], filters: {} };
+  
+  const resolvedConn = [];
+  const resolvedFilters = {};
 
   for (const c of preset) {
     let inputId = c.inputId;
@@ -100,10 +103,11 @@ function resolvePreset(name, inputMap, outputMap) {
     }
     
     if (inputId && outputId) {
-      resolved.push({ inputId, outputId });
+      resolvedConn.push({ inputId, outputId });
+      if (c.filter) resolvedFilters[outputId] = c.filter;
     }
   }
-  return resolved;
+  return { connections: resolvedConn, filters: resolvedFilters };
 }
 
 window.MidiHubExtras = { getFriendlyName, resetPortCounters, loadPresets, savePreset, deletePreset, resolvePreset };

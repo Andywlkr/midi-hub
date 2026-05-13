@@ -82,6 +82,25 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.btn-icon{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;padding:4px;display:flex;align-items:center;justify-content:center;transition:all .2s;opacity:0.6}
+.btn-icon:hover{color:var(--accent);opacity:1;transform:scale(1.1)}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);backdrop-filter:blur(5px);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s}
+.modal-content{background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;padding:24px;position:relative;box-shadow:0 10px 40px rgba(0,0,0,0.5)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-size:16px;font-weight:700;color:var(--accent2)}
+.filter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.ch-btn{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center}
+.ch-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 0 10px rgba(6,182,212,0.4)}
+.filter-group{margin-bottom:15px;padding:12px;background:rgba(0,0,0,0.2);border-radius:12px}
+.filter-group-title{font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;letter-spacing:1px;font-weight:700}
+.filter-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.filter-label{font-size:12px;color:var(--text)}
+.switch{position:relative;display:inline-block;width:40px;height:22px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:var(--surface2);transition:.4s;border-radius:34px}
+.slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background-color:#fff;transition:.4s;border-radius:50%}
+input:checked + .slider{background-color:var(--accent)}
+input:checked + .slider:before{transform:translateX(18px)}
 </style>
 </head>
 <body>
@@ -141,6 +160,36 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 <button class="btn toggle-log" onclick="toggleLog()">📋 Log MIDI</button>
 <div class="midi-log" id="midi-log"></div>
 
+<div class="modal-overlay" id="filter-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="filter-modal-title">Filtros: SQ-64</div>
+      <button class="btn" onclick="closeFilters()">Listo</button>
+    </div>
+    
+    <div class="filter-group-title">Canales MIDI (Input)</div>
+    <div class="filter-grid" id="ch-grid">
+      <!-- 16 buttons -->
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-group-title">Mensajes de Voz</div>
+      <div class="filter-row"><span class="filter-label">Notas On/Off</span><label class="switch"><input type="checkbox" id="f-notes" onchange="updateFilterParam('notes',this.checked)"><span class="slider"></span></label></div>
+      <div class="filter-row"><span class="filter-label">Control Change (CC)</span><label class="switch"><input type="checkbox" id="f-cc" onchange="updateFilterParam('cc',this.checked)"><span class="slider"></span></label></div>
+      <div class="filter-row"><span class="filter-label">Pitch Bend</span><label class="switch"><input type="checkbox" id="f-pitchBend" onchange="updateFilterParam('pitchBend',this.checked)"><span class="slider"></span></label></div>
+      <div class="filter-row"><span class="filter-label">Aftertouch</span><label class="switch"><input type="checkbox" id="f-aftertouch" onchange="updateFilterParam('aftertouch',this.checked)"><span class="slider"></span></label></div>
+      <div class="filter-row"><span class="filter-label">Prog. Change</span><label class="switch"><input type="checkbox" id="f-programChange" onchange="updateFilterParam('programChange',this.checked)"><span class="slider"></span></label></div>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-group-title">Sistema y Tiempo Real</div>
+      <div class="filter-row"><span class="filter-label">Reloj (Clock)</span><label class="switch"><input type="checkbox" id="f-clock" onchange="updateFilterParam('clock',this.checked)"><span class="slider"></span></label></div>
+      <div class="filter-row"><span class="filter-label">Transporte (Start/Stop)</span><label class="switch"><input type="checkbox" id="f-transport" onchange="updateFilterParam('transport',this.checked)"><span class="slider"></span></label></div>
+      <div class="filter-row"><span class="filter-label">SysEx</span><label class="switch"><input type="checkbox" id="f-sysex" onchange="updateFilterParam('sysex',this.checked)"><span class="slider"></span></label></div>
+    </div>
+  </div>
+</div>
+
 <script src="extras.js"></script>
 <script>
 // ── Forzar actualización de Caché ──────────────────
@@ -161,7 +210,106 @@ let wakeLock=null, audioCtx=null, silentSource=null, bgActive=false;
 let deferredInstall=null;
 let portLabels = new Map(); // Almacena el subLabel de cada puerto para usar en tags/logs
 
-// ── PWA Install ────────────────────────────────────
+// ── Filtros MIDI V2 ────────────────────────────────
+const DEFAULT_FILTER = () => ({
+  channels: new Array(16).fill(true),
+  notes: true,
+  cc: true,
+  pitchBend: true,
+  aftertouch: true,
+  programChange: true,
+  clock: true,
+  transport: true,
+  sysex: true
+});
+let deviceFilters = {}; // Se indexa por ID de puerto de salida
+
+function isMidiAllowed(data, filter) {
+  if(!filter) return true;
+  const s = data[0];
+  // Mensajes de sistema / tiempo real
+  if(s >= 0xF8) {
+    if(s === 0xF8) return filter.clock;
+    if(s === 0xFA || s === 0xFB || s === 0xFC) return filter.transport;
+    return true;
+  }
+  if(s >= 0xF0) {
+    if(s === 0xF0) return filter.sysex;
+    return true;
+  }
+  // Mensajes de canal
+  const type = s & 0xF0;
+  const ch = s & 0x0F;
+  if(!filter.channels[ch]) return false;
+  if(type === 0x90 || type === 0x80) return filter.notes;
+  if(type === 0xB0) return filter.cc;
+  if(type === 0xE0) return filter.pitchBend;
+  if(type === 0xA0 || type === 0xD0) return filter.aftertouch;
+  if(type === 0xC0) return filter.programChange;
+  return true;
+}
+
+// ── Gestión de Filtros UI ──────────────────────────
+let currentFilterDeviceId = null;
+
+function openFilters(id) {
+  currentFilterDeviceId = id;
+  const dev = outputs.get(id);
+  if(!dev) return;
+  
+  if(!deviceFilters[id]) deviceFilters[id] = DEFAULT_FILTER();
+  const f = deviceFilters[id];
+  
+  document.getElementById('filter-modal-title').textContent = `Filtros: ${dev.name}`;
+  document.getElementById('filter-modal').style.display = 'flex';
+  
+  // Renderizar grid de canales
+  const grid = document.getElementById('ch-grid');
+  grid.innerHTML = '';
+  for(let i=0; i<16; i++) {
+    const btn = document.createElement('button');
+    btn.className = `ch-btn ${f.channels[i] ? 'active' : ''}`;
+    btn.textContent = i + 1;
+    btn.onclick = () => toggleChannel(i, btn);
+    grid.appendChild(btn);
+  }
+  
+  // Sincronizar toggles
+  ['notes','cc','pitchBend','aftertouch','programChange','clock','transport','sysex'].forEach(key => {
+    document.getElementById(`f-${key}`).checked = f[key];
+  });
+}
+
+function closeFilters() {
+  document.getElementById('filter-modal').style.display = 'none';
+  currentFilterDeviceId = null;
+}
+
+function toggleChannel(ch, btn) {
+  if(!currentFilterDeviceId) return;
+  const f = deviceFilters[currentFilterDeviceId];
+  f.channels[ch] = !f.channels[ch];
+  btn.classList.toggle('active', f.channels[ch]);
+}
+
+function updateFilterParam(key, val) {
+  if(!currentFilterDeviceId) return;
+  deviceFilters[currentFilterDeviceId][key] = val;
+}
+
+function getMidiDesc(data) {
+  const s = data[0], type = s & 0xF0, ch = (s & 0x0F) + 1;
+  if(s === 0xF8) return 'Clock';
+  if(s === 0xFA) return 'Start';
+  if(s === 0xFB) return 'Continue';
+  if(s === 0xFC) return 'Stop';
+  if(type === 0x90) return `Note ON ch${ch} note=${data[1]} vel=${data[2]}`;
+  if(type === 0x80) return `Note OFF ch${ch} note=${data[1]}`;
+  if(type === 0xB0) return `CC ch${ch} num=${data[1]} val=${data[2]}`;
+  if(type === 0xE0) return `PitchBend ch${ch}`;
+  return `Msg 0x${s.toString(16).toUpperCase()}`;
+}
+
 window.addEventListener('beforeinstallprompt', e=>{
   e.preventDefault(); deferredInstall=e;
   document.getElementById('manual-install-btn').style.display = 'block';
@@ -251,13 +399,13 @@ document.getElementById('preset-select').onchange = (e) => {
     const name = e.target.value;
     if (!name) return;
     
-    // Check if preset exists to prevent phantom load errors
     const presets = window.MidiHubExtras.loadPresets();
     if (!presets[name]) return;
 
-    const resolved = window.MidiHubExtras.resolvePreset(name, inputs, outputs);
+    const { connections: resolved, filters } = window.MidiHubExtras.resolvePreset(name, inputs, outputs);
     if (resolved.length > 0) {
         connections = resolved;
+        deviceFilters = filters || {}; // Cargar filtros guardados
         renderDevices();
         drawConnections();
         renderConnectionTags();
@@ -266,7 +414,6 @@ document.getElementById('preset-select').onchange = (e) => {
     } else {
         alert(`No se pudieron reconectar los equipos del preset "${name}". ¿Están todos los dispositivos enchufados?`);
     }
-    // Dejar la vista en el default (que ahora dirá el nombre del preset cargado)
     e.target.value = "";
 };
 
@@ -281,7 +428,7 @@ function uiSavePreset() {
         }
     }
 
-    window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
+    window.MidiHubExtras.savePreset(name, connections, inputs, outputs, deviceFilters);
     setActivePresetName(name);
     addLog(`✓ Preset "${name}" guardado`);
 }
@@ -392,8 +539,12 @@ function createCard(device,type){
     </div>
     <div class="activity-bar"><div class="activity-fill" id="${type}-act-${device.id}"></div></div>
     <div class="port-row"><span class="port-label">${type==='input'?'SALIDA del equipo':'ENTRADA del equipo'}</span>
-    <button class="port-btn ${isActive?'active':''}" id="${type}-port-${device.id}"
-      onclick="${type==='input'?'selectInput':'selectOutput'}('${device.id}')">●</button></div>`;
+    <div style="display:flex;gap:5px;align-items:center;">
+      ${type==='output' ? `<button class="btn-icon" onclick="openFilters('${device.id}')" title="Filtros MIDI">🎚️</button>` : ''}
+      <button class="port-btn ${isActive?'active':''}" id="${type}-port-${device.id}"
+        onclick="${type==='input'?'selectInput':'selectOutput'}('${device.id}')">●</button>
+    </div>
+    </div>`;
       
   card.onclick = (e) => {
       if(e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
@@ -469,14 +620,14 @@ function handleMidiEvent(event, inputId) {
   lastMidiData = dataStr;
 
   const outIds = connections.filter(c => c.inputId === inputId).map(c => c.outputId);
-  
-  if (outIds.length === 0) return; // No routing needed
+  if (outIds.length === 0) return;
   
   const data = event.data;
   const outNames = [];
   outIds.forEach(outId => {
     const out = outputs.get(outId);
-    if (out) {
+    const filter = deviceFilters[outId];
+    if (out && isMidiAllowed(data, filter)) {
         out.send(data);
         const sub = portLabels.get(outId) || '';
         outNames.push(sub ? `${out.name} (${sub})` : out.name);
@@ -484,17 +635,20 @@ function handleMidiEvent(event, inputId) {
     flash('output', outId);
   });
   
-  flash('input', inputId);
-  
-  const inDev = inputs.get(inputId);
-  const inSub = portLabels.get(inputId) || '';
-  const inFull = inSub ? `${inDev?.name} (${inSub})` : (inDev?.name || 'Unknown');
-  const routePrefix = `[${inFull} → ${outNames.join(', ')}]`;
-  
-  const status = data[0] & 0xF0, ch = (data[0] & 0x0F) + 1;
-  if(status===0x90&&data[2]>0) addLog(`${routePrefix} Note ON  ch${ch} note=${data[1]} vel=${data[2]}`,'note-on');
-  else if(status===0x80||(status===0x90&&data[2]===0)) addLog(`${routePrefix} Note OFF ch${ch} note=${data[1]}`,'note-off');
-  else if(status===0xB0) addLog(`${routePrefix} CC ch${ch} cc=${data[1]} val=${data[2]}`,'cc');
+  if(outNames.length > 0) {
+    flash('input', inputId);
+    const inDev = inputs.get(inputId);
+    const inSub = portLabels.get(inputId) || '';
+    const inFull = inSub ? `${inDev?.name} (${inSub})` : (inDev?.name || 'Unknown');
+    
+    let type = 'msg';
+    const s = data[0] & 0xF0;
+    if (s === 0x90 && data[2] > 0) type = 'note-on';
+    else if (s === 0x80 || (s === 0x90 && data[2] === 0)) type = 'note-off';
+    else if (s === 0xB0) type = 'cc';
+    
+    addLog(`[${inFull} → ${outNames.join(', ')}] ${getMidiDesc(data)}`, type);
+  }
 }
 
 let flashTimers={};
