@@ -244,23 +244,7 @@ function updatePresetSelect() {
     });
 }
 
-function uiSavePreset() {
-    const name = prompt("Nombre para este ruteo:");
-    if (!name) return;
-    window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
-    updatePresetSelect();
-    addLog(`✓ Preset "${name}" guardado`);
-}
-
-function uiDeletePreset() {
-    const select = document.getElementById('preset-select');
-    const name = select.value;
-    if (!name) return;
-    if (confirm(`¿Borrar ruteo "${name}"?`)) {
-        window.MidiHubExtras.deletePreset(name);
-        updatePresetSelect();
-    }
-}
+let lastLoadedPreset = "";
 
 document.getElementById('preset-select').onchange = (e) => {
     const name = e.target.value;
@@ -272,12 +256,34 @@ document.getElementById('preset-select').onchange = (e) => {
         renderConnectionTags();
         renderDevices();
         addLog(`✓ Cargado: ${name}`);
+        lastLoadedPreset = name;
     } else {
         alert("No se pudieron reconectar los equipos del preset. ¿Están enchufados?");
     }
     // Resetear el selector para poder volver a clickear el mismo preset
     e.target.value = "";
 };
+
+function uiSavePreset() {
+    const name = prompt("Nombre para este ruteo:");
+    if (!name) return;
+    window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
+    updatePresetSelect();
+    addLog(`✓ Preset "${name}" guardado`);
+}
+
+function uiDeletePreset() {
+    if (!lastLoadedPreset) {
+        alert("Primero carga el preset que querés borrar desde la lista desplegable, y luego tocá este botón.");
+        return;
+    }
+    if (confirm(`¿Estás seguro de borrar definitivamente el preset "${lastLoadedPreset}"?`)) {
+        window.MidiHubExtras.deletePreset(lastLoadedPreset);
+        updatePresetSelect();
+        addLog(`🗑 Preset "${lastLoadedPreset}" borrado`);
+        lastLoadedPreset = "";
+    }
+}
 
 async function requestMidi(){
   if(midiAccess){ 
@@ -402,18 +408,25 @@ function handleMidiEvent(event, inputId) {
   if (outIds.length === 0) return; // No routing needed
   
   const data = event.data;
+  const outNames = [];
   outIds.forEach(outId => {
     const out = outputs.get(outId);
-    if (out) out.send(data);
+    if (out) {
+        out.send(data);
+        outNames.push(out.name);
+    }
     flash('output', outId);
   });
   
   flash('input', inputId);
   
+  const inName = inputs.get(inputId)?.name || 'Unknown';
+  const routePrefix = `[${inName} → ${outNames.join(', ')}]`;
+  
   const status = data[0] & 0xF0, ch = (data[0] & 0x0F) + 1;
-  if(status===0x90&&data[2]>0) addLog(`Note ON  ch${ch} note=${data[1]} vel=${data[2]}`,'note-on');
-  else if(status===0x80||(status===0x90&&data[2]===0)) addLog(`Note OFF ch${ch} note=${data[1]}`,'note-off');
-  else if(status===0xB0) addLog(`CC ch${ch} cc=${data[1]} val=${data[2]}`,'cc');
+  if(status===0x90&&data[2]>0) addLog(`${routePrefix} Note ON  ch${ch} note=${data[1]} vel=${data[2]}`,'note-on');
+  else if(status===0x80||(status===0x90&&data[2]===0)) addLog(`${routePrefix} Note OFF ch${ch} note=${data[1]}`,'note-off');
+  else if(status===0xB0) addLog(`${routePrefix} CC ch${ch} cc=${data[1]} val=${data[2]}`,'cc');
 }
 
 let flashTimers={};
