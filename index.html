@@ -298,10 +298,13 @@ function refreshDevices(){
   if(!midiAccess) return;
   inputs.clear(); outputs.clear();
   if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
-  midiAccess.inputs.forEach(i=>inputs.set(i.id,i));
+  midiAccess.inputs.forEach(i=>{
+    inputs.set(i.id,i);
+    i.onmidimessage = handleMidiEvent;
+  });
   midiAccess.outputs.forEach(o=>outputs.set(o.id,o));
   connections=connections.filter(c=>inputs.has(c.inputId)&&outputs.has(c.outputId));
-  renderDevices(); attachListeners(); drawConnections(); renderConnectionTags();
+  renderDevices(); drawConnections(); renderConnectionTags();
 }
 
 function renderDevices(){
@@ -361,38 +364,31 @@ function selectOutput(id){
   pendingInput=null;
   document.getElementById('connecting-hint').classList.remove('visible');
   document.querySelectorAll('.port-btn').forEach(b=>b.style.animation='');
-  attachListeners(); drawConnections(); renderConnectionTags(); renderDevices();
+  drawConnections(); renderConnectionTags(); renderDevices();
 }
 
 function removeConnection(inputId,outputId){
   connections=connections.filter(c=>!(c.inputId===inputId&&c.outputId===outputId));
   addLog(`Corte: ${inputs.get(inputId)?.name} → ${outputs.get(outputId)?.name}`);
-  attachListeners(); drawConnections(); renderConnectionTags(); renderDevices();
+  drawConnections(); renderConnectionTags(); renderDevices();
 }
 
-function attachListeners(){
-  if(!midiAccess) return;
+function handleMidiEvent(event) {
+  const inputId = event.currentTarget.id;
+  const outIds = connections.filter(c => c.inputId === inputId).map(c => c.outputId);
   
-  // Para cada entrada, buscar todas sus salidas conectadas
-  midiAccess.inputs.forEach(inp=>{
-    const outIds = connections.filter(c => c.inputId === inp.id).map(c => c.outputId);
-    if(outIds.length === 0) {
-        inp.onmidimessage = null;
-    } else {
-        inp.onmidimessage = (e) => {
-            outIds.forEach(outId => handleMidi(e, inp.id, outId));
-        };
-    }
+  if (outIds.length === 0) return; // No routing needed
+  
+  const data = event.data;
+  outIds.forEach(outId => {
+    const out = outputs.get(outId);
+    if (out) out.send(data);
+    flash('output', outId);
   });
-}
-
-function handleMidi(event,inputId,outputId){
-  const data=event.data;
-  const out=outputs.get(outputId);
-  if(out) out.send(data);
-  flash('input', inputId); 
-  flash('output', outputId);
-  const status=data[0]&0xF0, ch=(data[0]&0x0F)+1;
+  
+  flash('input', inputId);
+  
+  const status = data[0] & 0xF0, ch = (data[0] & 0x0F) + 1;
   if(status===0x90&&data[2]>0) addLog(`Note ON  ch${ch} note=${data[1]} vel=${data[2]}`,'note-on');
   else if(status===0x80||(status===0x90&&data[2]===0)) addLog(`Note OFF ch${ch} note=${data[1]}`,'note-off');
   else if(status===0xB0) addLog(`CC ch${ch} cc=${data[1]} val=${data[2]}`,'cc');
@@ -409,6 +405,8 @@ function flash(type, id){
 function drawConnections(){
   const svg=document.getElementById('canvas'); svg.innerHTML='';
   const mainRect=document.querySelector('.main').getBoundingClientRect();
+  svg.setAttribute('width', mainRect.width);
+  svg.setAttribute('height', mainRect.height);
   const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
   const grad=document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
   grad.id='lg'; grad.setAttribute('x1','0%'); grad.setAttribute('x2','100%');
