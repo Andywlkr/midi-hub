@@ -21,6 +21,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .status-dot{width:8px;height:8px;border-radius:50%;background:var(--red);transition:background .3s}
 .status-dot.connected{background:var(--green);box-shadow:0 0 8px var(--green)}
 .header-right{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.header-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
 .btn{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;transition:all .2s;white-space:nowrap}
 .btn:hover{background:var(--accent);border-color:var(--accent)}
 .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none}
@@ -28,10 +29,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .bg-status{display:flex;align-items:center;gap:5px;font-size:10px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted)}
 .bg-status.on{border-color:var(--green);color:var(--green)}
 .bg-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
-.main{display:flex;flex:1;overflow:hidden;position:relative}
-#canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1}
-.column{width:35%; max-width:200px; padding:12px 10px; overflow-y:auto; z-index:2; display:flex; flex-direction:column; gap:6px}
-.col-title{font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;padding:4px 8px 6px;display:flex;align-items:center;gap:6px}
+.main{display:flex;flex:1;overflow:hidden;position:relative;background:var(--bg)}
+#canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible;}
+.column{flex:1;display:flex;flex-direction:column;gap:10px;padding:20px;overflow-y:auto;z-index:2;position:relative;min-width:300px}
+.col-title{font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;display:flex;align-items:center;gap:8px;letter-spacing:1px}
 .col-title .dot{width:6px;height:6px;border-radius:50%}
 .inputs-col .dot{background:#7c3aed}
 .outputs-col .dot{background:#06b6d4}
@@ -57,15 +58,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .center-hint{text-align:center;color:var(--text-muted);font-size:11px;line-height:1.6;max-width:100%}
 .center-hint strong{color:var(--text)}
 #connections-list{position:relative; margin-top:20px; width:100%; display:flex; flex-direction:column; gap:5px; align-items:center; z-index:5; pointer-events:all}
-.conn-tag{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:6px;font-size:10px;animation:fadeIn .3s ease}
-.conn-tag .conn-from{color:#7c3aed;font-weight:600}
-.conn-tag .conn-arrow{color:var(--text-muted)}
-.conn-tag .conn-to{color:#06b6d4;font-weight:600}
-.conn-tag .remove-btn{margin-left:auto;background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;opacity:.6;transition:opacity .2s;pointer-events:all}
-.conn-tag .remove-btn:hover{opacity:1}
+.conn-tag{background:var(--surface);border-radius:6px; font-size:12px; gap:8px; box-shadow:0 4px 15px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:7px 10px;display:flex;align-items:center;animation:fadeIn .3s ease}
+.conn-from { color:var(--accent2); text-overflow:ellipsis; overflow:hidden; font-weight:600; }
+.conn-to { color:var(--accent); text-overflow:ellipsis; overflow:hidden; font-weight:600; }
+.conn-arrow { opacity:0.5; font-size:10px; color:var(--text-muted); }
+.conn-remove { cursor:pointer; color:#ff4444; font-weight:bold; padding:0 5px; margin-left:auto; }
+.conn-remove:hover { color:#ff0000; transform:scale(1.2); }
 .no-devices{text-align:center;color:var(--text-muted);font-size:11px;padding:16px;border:1px dashed var(--border);border-radius:10px;margin:4px}
-.midi-log{position:fixed;bottom:0;left:0;right:0;height:110px;background:var(--surface);border-top:1px solid var(--border);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;overflow-y:auto;z-index:20;display:none}
-.midi-log.visible{display:block}
+.midi-log { position:fixed; bottom:0; left:0; right:0; height:150px; background:rgba(10,10,15,0.95); border-top:1px solid rgba(255,255,255,0.1); 
+  color:#0f0; font-family:monospace; font-size:10px; padding:10px; overflow-y:auto; z-index:100; transform:translateY(100%); transition:transform 0.3s; word-wrap:break-word; white-space:pre-wrap; }
+.midi-log.visible { transform:translateY(0); display:block; }
 .log-entry{color:var(--text-muted);padding:1px 0}
 .log-entry.note-on{color:var(--green)}
 .log-entry.note-off{color:var(--red)}
@@ -386,6 +388,14 @@ function createCard(device,type){
     <div class="port-row"><span class="port-label">${type==='input'?'SALIDA del equipo':'ENTRADA del equipo'}</span>
     <button class="port-btn ${isActive?'active':''}" id="${type}-port-${device.id}"
       onclick="${type==='input'?'selectInput':'selectOutput'}('${device.id}')">●</button></div>`;
+      
+  card.onclick = (e) => {
+      if(e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+      if(type === 'input') selectInput(device.id);
+      else selectOutput(device.id);
+  };
+  card.style.cursor = 'pointer';
+      
   return card;
 }
 
@@ -424,8 +434,8 @@ function selectOutput(id){
   document.querySelectorAll('.port-btn').forEach(b=>b.style.animation='');
   
   updateDeviceState();
-  drawConnections(); 
   renderConnectionTags();
+  requestAnimationFrame(() => drawConnections());
 }
 
 function removeConnection(inputId,outputId){
@@ -438,8 +448,8 @@ function removeConnection(inputId,outputId){
   addLog(`Corte: ${inName} ${inSub ? '('+inSub+')' : ''} → ${outName} ${outSub ? '('+outSub+')' : ''}`);
   
   updateDeviceState();
-  drawConnections(); 
   renderConnectionTags();
+  requestAnimationFrame(() => drawConnections());
 }
 
 let lastMidiTime = 0;
