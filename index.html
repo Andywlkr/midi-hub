@@ -268,7 +268,6 @@ document.getElementById('preset-select').onchange = (e) => {
     const resolved = window.MidiHubExtras.resolvePreset(name, inputs, outputs);
     if (resolved.length > 0) {
         connections = resolved;
-        attachListeners();
         drawConnections();
         renderConnectionTags();
         renderDevices();
@@ -276,18 +275,27 @@ document.getElementById('preset-select').onchange = (e) => {
     } else {
         alert("No se pudieron reconectar los equipos del preset. ¿Están enchufados?");
     }
+    // Resetear el selector para poder volver a clickear el mismo preset
+    e.target.value = "";
 };
 
 async function requestMidi(){
-  if(midiAccess){ refreshDevices(); return; }
+  if(midiAccess){ 
+    if(confirm("¿Borrar todos los enlaces MIDI activos?")) {
+      connections = [];
+      drawConnections(); renderConnectionTags(); renderDevices();
+      addLog("⏹ Enlaces desconectados");
+    }
+    return; 
+  }
   try{
     midiAccess = await navigator.requestMIDIAccess({sysex:false});
     document.getElementById('status-dot').classList.add('connected');
     document.getElementById('status-text').textContent='MIDI OK';
     
-    // Deshabilitar visualmente el botón en vez de ocultarlo
+    // Cambiar botón a modo reset
     const btn = document.querySelector('button[onclick="requestMidi()"]');
-    if(btn) { btn.classList.add('active'); btn.textContent = '✔ Conectado'; btn.style.pointerEvents = 'none'; }
+    if(btn) { btn.classList.add('active'); btn.textContent = '🔌 Reset Ruteo'; }
 
     midiAccess.onstatechange=()=>refreshDevices();
     refreshDevices();
