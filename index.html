@@ -152,7 +152,11 @@ if('serviceWorker' in navigator) {
       registration.unregister();
     }
   });
-  // Registrar el nuevo (que no hace caché// ── State ──────────────────────────────────────────
+  // Registrar el nuevo (que no hace caché agresivo)
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// ── State ──────────────────────────────────────────
 let midiAccess=null, inputs=new Map(), outputs=new Map();
 let connections=[], pendingInput=null, logVisible=false, logEntries=0;
 let wakeLock=null, audioCtx=null, silentSource=null, bgActive=false;
