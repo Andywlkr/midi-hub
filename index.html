@@ -99,13 +99,19 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <span id="status-text">Sin acceso MIDI</span>
   </div>
   <div class="header-right">
+    <div class="presets-ui" id="presets-ui" style="display:flex;gap:4px;margin-right:8px">
+        <select class="btn" id="preset-select" style="max-width:100px"><option value="">Presets...</option></select>
+        <button class="btn" onclick="uiSavePreset()">💾</button>
+        <button class="btn" onclick="uiDeletePreset()">🗑</button>
+    </div>
     <div class="bg-status" id="bg-status">
       <div class="bg-dot"></div>
       <span id="bg-label">Segundo plano: OFF</span>
     </div>
-    <button class="btn" id="bg-btn" onclick="toggleBackground()">▶ Activar Fondo</button>
+    <button class="btn" id="bg-btn" onclick="toggleBackground()">▶ Fondo</button>
+    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲 Instalar</button>
     <button class="btn" onclick="refreshDevices()">↺</button>
-    <button class="btn primary" onclick="requestMidi()">Conectar MIDI</button>
+    <button class="btn primary" onclick="requestMidi()">Conectar</button>
   </div>
 </header>
 
@@ -116,21 +122,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 <div class="main">
   <svg id="canvas"></svg>
   <div class="column inputs-col">
-    <div class="col-title"><div class="dot"></div>Entradas MIDI</div>
-    <div id="inputs-list"><div class="no-devices">Presioná "Conectar MIDI"</div></div>
+    <div class="col-title"><div class="dot"></div>Entradas</div>
+    <div id="inputs-list"><div class="no-devices">Presioná "Conectar"</div></div>
   </div>
   <div class="center">
     <div class="center-hint" id="center-hint">
       <strong>¿Cómo usar?</strong><br>
-      1. Presioná <strong>Conectar MIDI</strong><br>
+      1. Presioná <strong>Conectar</strong><br>
       2. Tocá ● en una entrada<br>
       3. Tocá ● en una salida<br>
-      4. Activá <strong>Segundo Plano</strong> para seguir ruteando con la pantalla apagada
+      4. <strong>Segundo Plano</strong> para no interrumpir el flujo.
     </div>
   </div>
   <div class="column outputs-col">
-    <div class="col-title"><div class="dot"></div>Salidas MIDI</div>
-    <div id="outputs-list"><div class="no-devices">Presioná "Conectar MIDI"</div></div>
+    <div class="col-title"><div class="dot"></div>Salidas</div>
+    <div id="outputs-list"><div class="no-devices">Presioná "Conectar"</div></div>
   </div>
   <div id="connections-list"></div>
 </div>
@@ -138,6 +144,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 <button class="btn toggle-log" onclick="toggleLog()">📋 Log</button>
 <div class="midi-log" id="midi-log"></div>
 
+<script src="extras.js"></script>
 <script>
 // ── State ──────────────────────────────────────────
 let midiAccess=null, inputs=new Map(), outputs=new Map();
@@ -149,13 +156,21 @@ let deferredInstall=null;
 window.addEventListener('beforeinstallprompt', e=>{
   e.preventDefault(); deferredInstall=e;
   document.getElementById('install-banner').classList.add('visible');
+  document.getElementById('manual-install-btn').style.display = 'block';
 });
 function installPWA(){
-  if(!deferredInstall) return;
+  if(!deferredInstall) {
+    alert("Para instalar en Chrome: Menú ⋮ -> 'Instalar aplicación' o 'Agregar a pantalla de inicio'");
+    return;
+  }
   deferredInstall.prompt();
   deferredInstall.userChoice.then(()=>{ deferredInstall=null; document.getElementById('install-banner').classList.remove('visible'); });
 }
-window.addEventListener('appinstalled',()=>{ document.getElementById('install-banner').classList.remove('visible'); addLog('✓ App instalada como PWA'); });
+window.addEventListener('appinstalled',()=>{ 
+  document.getElementById('install-banner').classList.remove('visible'); 
+  document.getElementById('manual-install-btn').style.display = 'none';
+  addLog('✓ App instalada como PWA'); 
+});
 
 // ── Service Worker ─────────────────────────────────
 if('serviceWorker' in navigator){
@@ -169,12 +184,10 @@ async function toggleBackground(){
 
 async function startBackground(){
   let ok = true;
-  // 1. Wake Lock — pantalla siempre encendida
   if('wakeLock' in navigator){
-    try{ wakeLock = await navigator.wakeLock.request('screen'); addLog('✓ Wake Lock activo (pantalla on)'); }
-    catch(e){ addLog('⚠ Wake Lock no disponible: '+e.message); ok=false; }
+    try{ wakeLock = await navigator.wakeLock.request('screen'); addLog('✓ Wake Lock activo'); }
+    catch(e){ addLog('⚠ Wake Lock error: '+e.message); ok=false; }
   }
-  // 2. Silent AudioContext — evita que Android suspenda el tab
   try{
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     const buf = audioCtx.createBuffer(1,audioCtx.sampleRate,audioCtx.sampleRate);
@@ -183,13 +196,13 @@ async function startBackground(){
     silentSource.loop = true;
     silentSource.connect(audioCtx.destination);
     silentSource.start();
-    addLog('✓ Audio silencioso activo (mantiene vivo en fondo)');
+    addLog('✓ Audio silencioso activo');
   } catch(e){ addLog('⚠ AudioContext error: '+e.message); ok=false; }
 
   bgActive=true;
   document.getElementById('bg-status').classList.add('on');
-  document.getElementById('bg-label').textContent = 'Segundo plano: ON';
-  document.getElementById('bg-btn').textContent = '⏹ Desactivar Fondo';
+  document.getElementById('bg-label').textContent = 'Fondo: ON';
+  document.getElementById('bg-btn').textContent = '⏹ Stop Fondo';
   document.getElementById('bg-btn').classList.add('active');
   if(ok) addLog('✓ Modo segundo plano ACTIVADO');
 }
@@ -200,27 +213,68 @@ async function stopBackground(){
   if(audioCtx){ try{ await audioCtx.close(); }catch(e){} audioCtx=null; }
   bgActive=false;
   document.getElementById('bg-status').classList.remove('on');
-  document.getElementById('bg-label').textContent = 'Segundo plano: OFF';
-  document.getElementById('bg-btn').textContent = '▶ Activar Fondo';
+  document.getElementById('bg-label').textContent = 'Fondo: OFF';
+  document.getElementById('bg-btn').textContent = '▶ Fondo';
   document.getElementById('bg-btn').classList.remove('active');
   addLog('⏹ Modo segundo plano desactivado');
 }
 
-// Reactivar Wake Lock si la pantalla vuelve a estar visible
-document.addEventListener('visibilitychange', async()=>{
-  if(bgActive && document.visibilityState==='visible' && !wakeLock){
-    try{ wakeLock = await navigator.wakeLock.request('screen'); addLog('↺ Wake Lock reactivado'); }catch(e){}
-  }
-});
+// ── Presets UI ──────────────────────────────────────
+function updatePresetSelect() {
+    const select = document.getElementById('preset-select');
+    const presets = window.MidiHubExtras.loadPresets();
+    select.innerHTML = '<option value="">Presets...</option>';
+    Object.keys(presets).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+    });
+}
+
+function uiSavePreset() {
+    const name = prompt("Nombre del preset:");
+    if (!name) return;
+    window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
+    updatePresetSelect();
+    addLog(`✓ Preset "${name}" guardado`);
+}
+
+function uiDeletePreset() {
+    const select = document.getElementById('preset-select');
+    const name = select.value;
+    if (!name) return;
+    if (confirm(`¿Borrar preset "${name}"?`)) {
+        window.MidiHubExtras.deletePreset(name);
+        updatePresetSelect();
+    }
+}
+
+document.getElementById('preset-select').onchange = (e) => {
+    const name = e.target.value;
+    if (!name) return;
+    const resolved = window.MidiHubExtras.resolvePreset(name, inputs, outputs);
+    if (resolved.length > 0) {
+        connections = resolved;
+        attachListeners();
+        drawConnections();
+        renderConnectionTags();
+        renderDevices();
+        addLog(`✓ Preset "${name}" cargado (${resolved.length} conex.)`);
+    } else {
+        alert("No se encontraron los dispositivos de este preset. Asegurate de que estén conectados.");
+    }
+};
 
 // ── MIDI ───────────────────────────────────────────
 async function requestMidi(){
   try{
     midiAccess = await navigator.requestMIDIAccess({sysex:false});
     document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-text').textContent='MIDI Conectado';
+    document.getElementById('status-text').textContent='Conectado';
     midiAccess.onstatechange=()=>refreshDevices();
     refreshDevices();
+    updatePresetSelect();
     addLog('✓ Acceso MIDI obtenido');
   }catch(e){
     alert('No se pudo acceder al MIDI:\n'+e.message);
@@ -231,6 +285,7 @@ async function requestMidi(){
 function refreshDevices(){
   if(!midiAccess) return;
   inputs.clear(); outputs.clear();
+  window.MidiHubExtras.resetPortCounters();
   midiAccess.inputs.forEach(i=>inputs.set(i.id,i));
   midiAccess.outputs.forEach(o=>outputs.set(o.id,o));
   connections=connections.filter(c=>inputs.has(c.inputId)&&outputs.has(c.outputId));
@@ -239,9 +294,12 @@ function refreshDevices(){
 
 function renderDevices(){
   const il=document.getElementById('inputs-list'), ol=document.getElementById('outputs-list');
-  if(inputs.size===0){ il.innerHTML='<div class="no-devices">Sin entradas detectadas</div>'; }
+  window.MidiHubExtras.resetPortCounters(); // Reset before each render
+  if(inputs.size===0){ il.innerHTML='<div class="no-devices">Sin entradas</div>'; }
   else{ il.innerHTML=''; inputs.forEach(i=>il.appendChild(createCard(i,'input'))); }
-  if(outputs.size===0){ ol.innerHTML='<div class="no-devices">Sin salidas detectadas</div>'; }
+  
+  window.MidiHubExtras.resetPortCounters(); // Reset for outputs
+  if(outputs.size===0){ ol.innerHTML='<div class="no-devices">Sin salidas</div>'; }
   else{ ol.innerHTML=''; outputs.forEach(o=>ol.appendChild(createCard(o,'output'))); }
 }
 
@@ -249,9 +307,18 @@ function createCard(device,type){
   const card=document.createElement('div');
   card.className='device-card'; card.id='card-'+device.id;
   const isActive=connections.some(c=>type==='input'?c.inputId===device.id:c.outputId===device.id);
-  const emoji=type==='input'?'🎹':'🎛';
-  const name=device.name.length>28?device.name.substring(0,26)+'…':device.name;
-  card.innerHTML=`<div class="device-header"><div class="device-icon">${emoji}</div><div class="device-name">${name}</div></div>
+  
+  const info = window.MidiHubExtras.getFriendlyName(device.name);
+  const name = info.name;
+  const subLabel = info.sub;
+  const emoji = info.emoji;
+
+  card.innerHTML=`<div class="device-header"><div class="device-icon">${emoji}</div>
+    <div style="display:flex;flex-direction:column">
+        <div class="device-name">${name}</div>
+        <div style="font-size:8px;color:var(--text-muted)">${subLabel}</div>
+    </div>
+    </div>
     <div class="activity-bar"><div class="activity-fill" id="act-${device.id}"></div></div>
     <div class="port-row"><span class="port-label">${type==='input'?'OUT →':'→ IN'}</span>
     <button class="port-btn ${isActive?'active':''}" id="port-${device.id}"
@@ -367,8 +434,9 @@ function addLog(msg,type=''){
 window.addEventListener('resize',drawConnections);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pendingInput=null; document.getElementById('connecting-hint').classList.remove('visible'); document.querySelectorAll('.port-btn').forEach(b=>b.style.animation=''); }});
 
-if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='Web MIDI no soportado — Usá Chrome'; }
-else{ document.getElementById('status-text').textContent='Listo — Presioná Conectar MIDI'; }
+if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='No MIDI'; }
+else{ document.getElementById('status-text').textContent='Listo'; }
 </script>
+
 </body>
 </html>
