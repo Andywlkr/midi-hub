@@ -39,12 +39,23 @@ function loadPresets() {
 
 function savePreset(name, connections, inputMap, outputMap) {
   const presets = loadPresets();
-  presets[name] = connections.map(c => ({
-    inputId: c.inputId,
-    outputId: c.outputId,
-    inputName: inputMap.get(c.inputId)?.name || '',
-    outputName: outputMap.get(c.outputId)?.name || '',
-  }));
+  presets[name] = connections.map(c => {
+    const inDev = inputMap.get(c.inputId);
+    const outDev = outputMap.get(c.outputId);
+    
+    let inIndex = 0, outIndex = 0, currIn = 0, currOut = 0;
+    inputMap.forEach((d, id) => { if(d.name === inDev?.name) { if(id === c.inputId) inIndex = currIn; currIn++; } });
+    outputMap.forEach((d, id) => { if(d.name === outDev?.name) { if(id === c.outputId) outIndex = currOut; currOut++; } });
+
+    return {
+      inputId: c.inputId,
+      outputId: c.outputId,
+      inputName: inDev?.name || '',
+      outputName: outDev?.name || '',
+      inputIndex: inIndex,
+      outputIndex: outIndex
+    };
+  });
   localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
 }
 
@@ -59,33 +70,37 @@ function resolvePreset(name, inputMap, outputMap) {
   const preset = presets[name];
   if (!preset) return [];
   const resolved = [];
-  
-  // Track assigned fallbacks to avoid assigning the same port twice if names match
-  const usedInputs = new Set();
-  const usedOutputs = new Set();
 
   for (const c of preset) {
     let inputId = c.inputId;
     let outputId = c.outputId;
     
-    // If exact ID not found, fallback to name (matching first unused)
-    if (!inputMap.has(inputId)) {
+    const inDev = inputMap.get(inputId);
+    if (!inDev || inDev.name !== c.inputName) {
       inputId = null;
-      inputMap.forEach((dev, id) => { 
-        if (!inputId && dev.name === c.inputName && !usedInputs.has(id)) inputId = id; 
+      let currIn = 0;
+      inputMap.forEach((d, id) => { 
+        if (!inputId && d.name === c.inputName) {
+            if (currIn === (c.inputIndex || 0)) inputId = id;
+            currIn++;
+        }
       });
     }
-    if (!outputMap.has(outputId)) {
+
+    const outDev = outputMap.get(outputId);
+    if (!outDev || outDev.name !== c.outputName) {
       outputId = null;
-      outputMap.forEach((dev, id) => { 
-        if (!outputId && dev.name === c.outputName && !usedOutputs.has(id)) outputId = id; 
+      let currOut = 0;
+      outputMap.forEach((d, id) => { 
+        if (!outputId && d.name === c.outputName) {
+            if (currOut === (c.outputIndex || 0)) outputId = id;
+            currOut++;
+        }
       });
     }
     
     if (inputId && outputId) {
       resolved.push({ inputId, outputId });
-      usedInputs.add(inputId);
-      usedOutputs.add(outputId);
     }
   }
   return resolved;

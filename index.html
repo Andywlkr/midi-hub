@@ -485,6 +485,7 @@ function addLog(msg,type=''){
 }
 
 window.addEventListener('resize',drawConnections);
+document.querySelectorAll('.column').forEach(col => col.addEventListener('scroll', drawConnections));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pendingInput=null; document.getElementById('connecting-hint').classList.remove('visible'); document.querySelectorAll('.port-btn').forEach(b=>b.style.animation=''); }});
 
 if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='Sin MIDI'; }
