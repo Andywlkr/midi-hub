@@ -278,12 +278,17 @@ document.getElementById('preset-select').onchange = (e) => {
     }
 };
 
-// ── MIDI ───────────────────────────────────────────
 async function requestMidi(){
+  if(midiAccess){ refreshDevices(); return; }
   try{
     midiAccess = await navigator.requestMIDIAccess({sysex:false});
     document.getElementById('status-dot').classList.add('connected');
     document.getElementById('status-text').textContent='MIDI OK';
+    
+    // Ocultar el botón conectar para evitar clicks duplicados que duplican eventos
+    const btn = document.querySelector('button[onclick="requestMidi()"]');
+    if(btn) btn.style.display = 'none';
+
     midiAccess.onstatechange=()=>refreshDevices();
     refreshDevices();
     updatePresetSelect();
@@ -373,7 +378,17 @@ function removeConnection(inputId,outputId){
   drawConnections(); renderConnectionTags(); renderDevices();
 }
 
+let lastMidiTime = 0;
+let lastMidiData = '';
+
 function handleMidiEvent(event) {
+  // Evitar duplicados exactos en menos de 2ms (pasa en Android o por clicks múltiples)
+  const now = performance.now();
+  const dataStr = event.data[0] + ',' + event.data[1] + ',' + event.data[2];
+  if (now - lastMidiTime < 2 && lastMidiData === dataStr) return;
+  lastMidiTime = now;
+  lastMidiData = dataStr;
+
   const inputId = event.currentTarget.id;
   const outIds = connections.filter(c => c.inputId === inputId).map(c => c.outputId);
   
