@@ -131,12 +131,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       Conecta tus teclados y controladores (Fuentes) a tus samplers y sintes (Destinos).<br>
       <small style="opacity:0.6; display:block; margin-top:10px">Usa Chrome y habilita HTTPS.</small>
     </div>
+    <div id="connections-list" style="position:relative; margin-top:20px; max-height:none; transform:none; left:auto; bottom:auto; width:100%; display:flex; flex-direction:column; gap:5px; align-items:center;"></div>
   </div>
   <div class="column outputs-col">
     <div class="col-title"><div class="dot"></div>DESTINOS (MIDI IN)</div>
     <div id="outputs-list"><div class="no-devices">No hay destinos</div></div>
   </div>
-  <div id="connections-list"></div>
 </div>
 
 <button class="btn toggle-log" onclick="toggleLog()">📋 Log MIDI</button>
@@ -144,6 +144,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 <script src="extras.js"></script>
 <script>
+// ── Forzar actualización de Caché ──────────────────
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+    }
+  });
+  // Registrar el nuevo (que no hace caché agresivo)
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
 // ── State ──────────────────────────────────────────
 let midiAccess=null, inputs=new Map(), outputs=new Map();
 let connections=[], pendingInput=null, logVisible=false, logEntries=0;
@@ -167,11 +178,6 @@ window.addEventListener('appinstalled',()=>{
   document.getElementById('manual-install-btn').style.display = 'none';
   addLog('✓ App instalada correctamente'); 
 });
-
-// ── Service Worker ─────────────────────────────────
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
-}
 
 // ── Background Keep-Alive ──────────────────────────
 async function toggleBackground(){

@@ -1,14 +1,26 @@
 // ── Device Label Map ──────────────────────────────
 const DEVICE_LABELS = {
-  'sp-404':    { name: 'Roland SP-404MK2', emoji: '🎛', ports: { 0: 'MIDI In/Out' } },
-  'mpk mini':  { name: 'Akai MPK Mini',     emoji: '🎹', ports: { 0: 'Keys/Pads', 1: 'Control' } },
-  'sq-64':     { name: 'Korg SQ-64',        emoji: '🔢', ports: { 0: 'USB-A', 1: 'USB-B', 2: 'USB-C', 3: 'USB-D' } },
-  'sq64':      { name: 'Korg SQ-64',        emoji: '🔢', ports: { 0: 'USB-A', 1: 'USB-B', 2: 'USB-C', 3: 'USB-D' } },
+  'sp-404':    { name: 'Roland SP-404MK2', emoji: '🎛', ports: { 0: 'MIDI Principal' } },
+  'mpk mini':  { name: 'Akai MPK Mini',     emoji: '🎹', ports: { 0: 'Keys/Pads', 1: 'Control Interno' } },
+  'sq-64':     { name: 'Korg SQ-64',        emoji: '🔢', ports: { 0: 'USB-A (Track 1/2)', 1: 'USB-B (Track 3)', 2: 'USB-C (Track 4)' } },
+  'sq64':      { name: 'Korg SQ-64',        emoji: '🔢', ports: { 0: 'USB-A (Track 1/2)', 1: 'USB-B (Track 3)', 2: 'USB-C (Track 4)' } },
 };
 
 window.portCounters = {};
 
 function getFriendlyName(rawName) {
+  const low = rawName.toLowerCase();
+  
+  for (const key of Object.keys(DEVICE_LABELS)) {
+    if (low.includes(key)) {
+      const info = DEVICE_LABELS[key];
+      if (window.portCounters[key] === undefined) window.portCounters[key] = 0;
+      const idx = window.portCounters[key]++;
+      const portLabel = info.ports[idx] || `Puerto ${idx + 1}`;
+      return { name: rawName, sub: portLabel, emoji: info.emoji, raw: rawName };
+    }
+  }
+  
   if (window.portCounters[rawName] === undefined) window.portCounters[rawName] = 0;
   const idx = window.portCounters[rawName]++;
   const portLabel = `Puerto ${idx + 1}`;
