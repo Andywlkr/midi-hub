@@ -99,8 +99,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <span id="status-text">Buscando MIDI...</span>
   </div>
   <div class="header-right">
-    <div class="presets-ui" id="presets-ui" style="display:flex;gap:4px;margin-right:8px">
-        <select class="btn" id="preset-select" style="max-width:100px"><option value="">Presets...</option></select>
+    <div class="presets-ui" id="presets-ui" style="display:flex;gap:4px;margin-right:8px;align-items:center;">
+        <span id="active-preset-label" style="font-size:11px;color:var(--accent2);font-weight:bold;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <select class="btn" id="preset-select" style="max-width:100px"><option value="">Cargar...</option></select>
         <button class="btn" onclick="uiSavePreset()" title="Guardar Preset">💾</button>
         <button class="btn" onclick="uiDeletePreset()" title="Borrar Preset">🗑</button>
     </div>
@@ -246,6 +247,11 @@ function updatePresetSelect() {
 
 let lastLoadedPreset = "";
 
+function setActivePresetName(name) {
+    lastLoadedPreset = name;
+    document.getElementById('active-preset-label').textContent = name ? `📄 ${name}` : '';
+}
+
 document.getElementById('preset-select').onchange = (e) => {
     const name = e.target.value;
     if (!name) return;
@@ -256,7 +262,7 @@ document.getElementById('preset-select').onchange = (e) => {
         renderConnectionTags();
         renderDevices();
         addLog(`✓ Cargado: ${name}`);
-        lastLoadedPreset = name;
+        setActivePresetName(name);
     } else {
         alert("No se pudieron reconectar los equipos del preset. ¿Están enchufados?");
     }
@@ -270,6 +276,7 @@ function uiSavePreset() {
     window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
     updatePresetSelect();
     addLog(`✓ Preset "${name}" guardado`);
+    setActivePresetName(name);
 }
 
 function uiDeletePreset() {
@@ -281,7 +288,7 @@ function uiDeletePreset() {
         window.MidiHubExtras.deletePreset(lastLoadedPreset);
         updatePresetSelect();
         addLog(`🗑 Preset "${lastLoadedPreset}" borrado`);
-        lastLoadedPreset = "";
+        setActivePresetName("");
     }
 }
 
