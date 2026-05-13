@@ -180,6 +180,8 @@ window.addEventListener('appinstalled',()=>{
 });
 
 // ── Background Keep-Alive ──────────────────────────
+let domPingInterval = null;
+
 async function toggleBackground(){
   if(bgActive){ await stopBackground(); } else { await startBackground(); }
 }
@@ -201,6 +203,11 @@ async function startBackground(){
     addLog('✓ Manteniendo proceso vivo en fondo');
   } catch(e){ addLog('⚠ AudioContext error: '+e.message); ok=false; }
 
+  // Mantener actividad del DOM
+  domPingInterval = setInterval(() => {
+    document.getElementById('bg-status').style.opacity = Math.random() > 0.5 ? '0.99' : '1';
+  }, 5000);
+
   bgActive=true;
   document.getElementById('bg-status').classList.add('on');
   document.getElementById('bg-label').textContent = 'Fondo: ON';
@@ -213,6 +220,8 @@ async function stopBackground(){
   if(wakeLock){ try{ await wakeLock.release(); }catch(e){} wakeLock=null; }
   if(silentSource){ try{ silentSource.stop(); }catch(e){} silentSource=null; }
   if(audioCtx){ try{ await audioCtx.close(); }catch(e){} audioCtx=null; }
+  if(domPingInterval){ clearInterval(domPingInterval); domPingInterval=null; }
+  
   bgActive=false;
   document.getElementById('bg-status').classList.remove('on');
   document.getElementById('bg-label').textContent = 'Fondo: OFF';
@@ -399,6 +408,7 @@ function flash(type, id){
 
 function drawConnections(){
   const svg=document.getElementById('canvas'); svg.innerHTML='';
+  const mainRect=document.querySelector('.main').getBoundingClientRect();
   const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
   const grad=document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
   grad.id='lg'; grad.setAttribute('x1','0%'); grad.setAttribute('x2','100%');
@@ -412,7 +422,12 @@ function drawConnections(){
     const tb=document.getElementById('output-port-'+c.outputId);
     if(!fb||!tb) return;
     const r1=fb.getBoundingClientRect(), r2=tb.getBoundingClientRect();
-    const x1=r1.right,y1=r1.top+r1.height/2,x2=r2.left,y2=r2.top+r2.height/2,cx=(x1+x2)/2;
+    // Ajuste de offset relativo al contenedor .main
+    const x1 = r1.right - mainRect.left;
+    const y1 = r1.top - mainRect.top + r1.height/2;
+    const x2 = r2.left - mainRect.left;
+    const y2 = r2.top - mainRect.top + r2.height/2;
+    const cx = (x1+x2)/2;
     const p=document.createElementNS('http://www.w3.org/2000/svg','path');
     p.setAttribute('d',`M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
     p.setAttribute('stroke','url(#lg)'); p.setAttribute('stroke-width','2.5');

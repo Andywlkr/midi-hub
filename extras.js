@@ -40,6 +40,8 @@ function loadPresets() {
 function savePreset(name, connections, inputMap, outputMap) {
   const presets = loadPresets();
   presets[name] = connections.map(c => ({
+    inputId: c.inputId,
+    outputId: c.outputId,
     inputName: inputMap.get(c.inputId)?.name || '',
     outputName: outputMap.get(c.outputId)?.name || '',
   }));
@@ -57,11 +59,34 @@ function resolvePreset(name, inputMap, outputMap) {
   const preset = presets[name];
   if (!preset) return [];
   const resolved = [];
+  
+  // Track assigned fallbacks to avoid assigning the same port twice if names match
+  const usedInputs = new Set();
+  const usedOutputs = new Set();
+
   for (const c of preset) {
-    let inputId = null, outputId = null;
-    inputMap.forEach((dev, id) => { if (dev.name === c.inputName) inputId = id; });
-    outputMap.forEach((dev, id) => { if (dev.name === c.outputName) outputId = id; });
-    if (inputId && outputId) resolved.push({ inputId, outputId });
+    let inputId = c.inputId;
+    let outputId = c.outputId;
+    
+    // If exact ID not found, fallback to name (matching first unused)
+    if (!inputMap.has(inputId)) {
+      inputId = null;
+      inputMap.forEach((dev, id) => { 
+        if (!inputId && dev.name === c.inputName && !usedInputs.has(id)) inputId = id; 
+      });
+    }
+    if (!outputMap.has(outputId)) {
+      outputId = null;
+      outputMap.forEach((dev, id) => { 
+        if (!outputId && dev.name === c.outputName && !usedOutputs.has(id)) outputId = id; 
+      });
+    }
+    
+    if (inputId && outputId) {
+      resolved.push({ inputId, outputId });
+      usedInputs.add(inputId);
+      usedOutputs.add(outputId);
+    }
   }
   return resolved;
 }
