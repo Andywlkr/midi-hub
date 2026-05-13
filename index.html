@@ -302,18 +302,18 @@ function renderDevices(){
 
 function createCard(device,type){
   const card=document.createElement('div');
-  card.className='device-card'; card.id='card-'+device.id;
+  card.className='device-card'; card.id=(type==='input'?'in-card-':'out-card-')+device.id;
   const isActive=connections.some(c=>type==='input'?c.inputId===device.id:c.outputId===device.id);
   
   let name = device.name;
-  let subLabel = "Puerto MIDI";
-  let emoji = "🎵";
-  
+  let subLabel = "";
+  let emoji = type==='input'?'🎹':'🎛';
+
   if(window.MidiHubExtras) {
     const info = window.MidiHubExtras.getFriendlyName(device.name);
     name = info.name;
     subLabel = info.sub;
-    emoji = info.emoji;
+    emoji = info.emoji || emoji;
   }
 
   card.innerHTML=`<div class="device-header"><div class="device-icon">${emoji}</div>
@@ -322,9 +322,9 @@ function createCard(device,type){
         <div style="font-size:9px;color:var(--text-muted);font-weight:bold">${subLabel}</div>
     </div>
     </div>
-    <div class="activity-bar"><div class="activity-fill" id="act-${device.id}"></div></div>
+    <div class="activity-bar"><div class="activity-fill" id="${type}-act-${device.id}"></div></div>
     <div class="port-row"><span class="port-label">${type==='input'?'SALIDA del equipo':'ENTRADA del equipo'}</span>
-    <button class="port-btn ${isActive?'active':''}" id="port-${device.id}"
+    <button class="port-btn ${isActive?'active':''}" id="${type}-port-${device.id}"
       onclick="${type==='input'?'selectInput':'selectOutput'}('${device.id}')">●</button></div>`;
   return card;
 }
@@ -334,7 +334,7 @@ function selectInput(id){
   pendingInput=id;
   document.getElementById('connecting-hint').classList.add('visible');
   document.querySelectorAll('.port-btn').forEach(b=>b.style.animation='');
-  const btn=document.getElementById('port-'+id);
+  const btn=document.getElementById('input-port-'+id);
   if(btn) btn.style.animation='pulse .8s infinite';
 }
 
@@ -357,11 +357,17 @@ function removeConnection(inputId,outputId){
 
 function attachListeners(){
   if(!midiAccess) return;
-  midiAccess.inputs.forEach(inp=>{ inp.onmidimessage=null; });
-  connections.forEach(c=>{
-    const inp=inputs.get(c.inputId), out=outputs.get(c.outputId);
-    if(!inp||!out) return;
-    inp.onmidimessage=(e)=>handleMidi(e,c.inputId,c.outputId);
+  
+  // Para cada entrada, buscar todas sus salidas conectadas
+  midiAccess.inputs.forEach(inp=>{
+    const outIds = connections.filter(c => c.inputId === inp.id).map(c => c.outputId);
+    if(outIds.length === 0) {
+        inp.onmidimessage = null;
+    } else {
+        inp.onmidimessage = (e) => {
+            outIds.forEach(outId => handleMidi(e, inp.id, outId));
+        };
+    }
   });
 }
 
@@ -369,7 +375,8 @@ function handleMidi(event,inputId,outputId){
   const data=event.data;
   const out=outputs.get(outputId);
   if(out) out.send(data);
-  flash(inputId); flash(outputId);
+  flash('input', inputId); 
+  flash('output', outputId);
   const status=data[0]&0xF0, ch=(data[0]&0x0F)+1;
   if(status===0x90&&data[2]>0) addLog(`Note ON  ch${ch} note=${data[1]} vel=${data[2]}`,'note-on');
   else if(status===0x80||(status===0x90&&data[2]===0)) addLog(`Note OFF ch${ch} note=${data[1]}`,'note-off');
@@ -377,10 +384,11 @@ function handleMidi(event,inputId,outputId){
 }
 
 let flashTimers={};
-function flash(id){
-  const el=document.getElementById('act-'+id); if(!el) return;
-  el.style.width='100%'; clearTimeout(flashTimers[id]);
-  flashTimers[id]=setTimeout(()=>el.style.width='0%',150);
+function flash(type, id){
+  const key = type + '-' + id;
+  const el=document.getElementById(type+'-act-'+id); if(!el) return;
+  el.style.width='100%'; clearTimeout(flashTimers[key]);
+  flashTimers[key]=setTimeout(()=>el.style.width='0%',150);
 }
 
 function drawConnections(){
@@ -394,7 +402,8 @@ function drawConnections(){
   s2.setAttribute('offset','100%'); s2.setAttribute('stop-color','#06b6d4');
   grad.appendChild(s1); grad.appendChild(s2); defs.appendChild(grad); svg.appendChild(defs);
   connections.forEach(c=>{
-    const fb=document.getElementById('port-'+c.inputId), tb=document.getElementById('port-'+c.outputId);
+    const fb=document.getElementById('input-port-'+c.inputId);
+    const tb=document.getElementById('output-port-'+c.outputId);
     if(!fb||!tb) return;
     const r1=fb.getBoundingClientRect(), r2=tb.getBoundingClientRect();
     const x1=r1.right,y1=r1.top+r1.height/2,x2=r2.left,y2=r2.top+r2.height/2,cx=(x1+x2)/2;
@@ -440,7 +449,6 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pen
 if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='Sin MIDI'; }
 else{ document.getElementById('status-text').textContent='Listo'; }
 </script>
-
 
 </body>
 </html>

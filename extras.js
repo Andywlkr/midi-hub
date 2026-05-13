@@ -9,21 +9,10 @@ const DEVICE_LABELS = {
 window.portCounters = {};
 
 function getFriendlyName(rawName) {
-  const low = rawName.toLowerCase();
-  console.log("Detecting device:", rawName);
-  for (const key of Object.keys(DEVICE_LABELS)) {
-    if (low.includes(key)) {
-      const info = DEVICE_LABELS[key];
-      if (window.portCounters[key] === undefined) window.portCounters[key] = 0;
-      const idx = window.portCounters[key]++;
-      const portLabel = info.ports[idx] || `Puerto ${idx + 1}`;
-      return { name: info.name, sub: portLabel, emoji: info.emoji, raw: rawName };
-    }
-  }
-  
   if (window.portCounters[rawName] === undefined) window.portCounters[rawName] = 0;
   const idx = window.portCounters[rawName]++;
-  return { name: rawName, sub: `Puerto ${idx + 1}`, emoji: '🎵', raw: rawName };
+  const portLabel = `Puerto ${idx + 1}`;
+  return { name: rawName, sub: portLabel, emoji: '🎵', raw: rawName };
 }
 
 function resetPortCounters() { window.portCounters = {}; }
