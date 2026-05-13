@@ -337,12 +337,17 @@ function refreshDevices(){
   if(!midiAccess) return;
   inputs.clear(); outputs.clear();
   if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
-  midiAccess.inputs.forEach(i=>{
+  
+  // Ordenar puertos por ID para asegurar consistencia en etiquetas e índices de presets
+  const sortedInputs = Array.from(midiAccess.inputs.values()).sort((a,b) => a.id.localeCompare(b.id));
+  const sortedOutputs = Array.from(midiAccess.outputs.values()).sort((a,b) => a.id.localeCompare(b.id));
+
+  sortedInputs.forEach(i=>{
     inputs.set(i.id,i);
-    // Usar closure para aislar y fijar el ID del puerto, evitando que Android pierda el event.currentTarget
     i.onmidimessage = (e) => handleMidiEvent(e, i.id);
   });
-  midiAccess.outputs.forEach(o=>outputs.set(o.id,o));
+  sortedOutputs.forEach(o=>outputs.set(o.id,o));
+
   connections=connections.filter(c=>inputs.has(c.inputId)&&outputs.has(c.outputId));
   renderDevices(); drawConnections(); renderConnectionTags();
 }
