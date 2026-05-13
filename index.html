@@ -96,52 +96,50 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
   </div>
   <div class="status-bar">
     <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">Sin acceso MIDI</span>
+    <span id="status-text">Buscando MIDI...</span>
   </div>
   <div class="header-right">
     <div class="presets-ui" id="presets-ui" style="display:flex;gap:4px;margin-right:8px">
         <select class="btn" id="preset-select" style="max-width:100px"><option value="">Presets...</option></select>
-        <button class="btn" onclick="uiSavePreset()">💾</button>
-        <button class="btn" onclick="uiDeletePreset()">🗑</button>
+        <button class="btn" onclick="uiSavePreset()" title="Guardar Preset">💾</button>
+        <button class="btn" onclick="uiDeletePreset()" title="Borrar Preset">🗑</button>
     </div>
     <div class="bg-status" id="bg-status">
       <div class="bg-dot"></div>
-      <span id="bg-label">Segundo plano: OFF</span>
+      <span id="bg-label">Fondo: OFF</span>
     </div>
-    <button class="btn" id="bg-btn" onclick="toggleBackground()">▶ Fondo</button>
-    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲 Instalar</button>
-    <button class="btn" onclick="refreshDevices()">↺</button>
+    <button class="btn" id="bg-btn" onclick="toggleBackground()" title="Seguir ruteando con pantalla apagada">▶ Fondo</button>
+    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲 Instalar App</button>
+    <button class="btn" onclick="refreshDevices()" title="Refrescar dispositivos">↺</button>
     <button class="btn primary" onclick="requestMidi()">Conectar</button>
   </div>
 </header>
 
 <div class="connecting-hint" id="connecting-hint">
-  Seleccioná una SALIDA para conectar · ESC para cancelar
+  Seleccioná una SALIDA para completar la conexión · ESC para cancelar
 </div>
 
 <div class="main">
   <svg id="canvas"></svg>
   <div class="column inputs-col">
-    <div class="col-title"><div class="dot"></div>Entradas</div>
-    <div id="inputs-list"><div class="no-devices">Presioná "Conectar"</div></div>
+    <div class="col-title"><div class="dot"></div>FUENTES (MIDI OUT)</div>
+    <div id="inputs-list"><div class="no-devices">No hay fuentes</div></div>
   </div>
   <div class="center">
     <div class="center-hint" id="center-hint">
-      <strong>¿Cómo usar?</strong><br>
-      1. Presioná <strong>Conectar</strong><br>
-      2. Tocá ● en una entrada<br>
-      3. Tocá ● en una salida<br>
-      4. <strong>Segundo Plano</strong> para no interrumpir el flujo.
+      <strong>Ruteador MIDI</strong><br>
+      Conecta tus teclados y controladores (Fuentes) a tus samplers y sintes (Destinos).<br>
+      <small style="opacity:0.6; display:block; margin-top:10px">Usa Chrome y habilita HTTPS.</small>
     </div>
   </div>
   <div class="column outputs-col">
-    <div class="col-title"><div class="dot"></div>Salidas</div>
-    <div id="outputs-list"><div class="no-devices">Presioná "Conectar"</div></div>
+    <div class="col-title"><div class="dot"></div>DESTINOS (MIDI IN)</div>
+    <div id="outputs-list"><div class="no-devices">No hay destinos</div></div>
   </div>
   <div id="connections-list"></div>
 </div>
 
-<button class="btn toggle-log" onclick="toggleLog()">📋 Log</button>
+<button class="btn toggle-log" onclick="toggleLog()">📋 Log MIDI</button>
 <div class="midi-log" id="midi-log"></div>
 
 <script src="extras.js"></script>
@@ -155,21 +153,19 @@ let deferredInstall=null;
 // ── PWA Install ────────────────────────────────────
 window.addEventListener('beforeinstallprompt', e=>{
   e.preventDefault(); deferredInstall=e;
-  document.getElementById('install-banner').classList.add('visible');
   document.getElementById('manual-install-btn').style.display = 'block';
 });
 function installPWA(){
   if(!deferredInstall) {
-    alert("Para instalar en Chrome: Menú ⋮ -> 'Instalar aplicación' o 'Agregar a pantalla de inicio'");
+    alert("Para instalar en Android:\n1. Toca los tres puntos (⋮) arriba a la derecha.\n2. Toca 'Instalar aplicación' o 'Agregar a pantalla de inicio'.");
     return;
   }
   deferredInstall.prompt();
-  deferredInstall.userChoice.then(()=>{ deferredInstall=null; document.getElementById('install-banner').classList.remove('visible'); });
+  deferredInstall.userChoice.then(()=>{ deferredInstall=null; });
 }
 window.addEventListener('appinstalled',()=>{ 
-  document.getElementById('install-banner').classList.remove('visible'); 
   document.getElementById('manual-install-btn').style.display = 'none';
-  addLog('✓ App instalada como PWA'); 
+  addLog('✓ App instalada correctamente'); 
 });
 
 // ── Service Worker ─────────────────────────────────
@@ -196,7 +192,7 @@ async function startBackground(){
     silentSource.loop = true;
     silentSource.connect(audioCtx.destination);
     silentSource.start();
-    addLog('✓ Audio silencioso activo');
+    addLog('✓ Manteniendo proceso vivo en fondo');
   } catch(e){ addLog('⚠ AudioContext error: '+e.message); ok=false; }
 
   bgActive=true;
@@ -204,7 +200,7 @@ async function startBackground(){
   document.getElementById('bg-label').textContent = 'Fondo: ON';
   document.getElementById('bg-btn').textContent = '⏹ Stop Fondo';
   document.getElementById('bg-btn').classList.add('active');
-  if(ok) addLog('✓ Modo segundo plano ACTIVADO');
+  if(ok) addLog('✓ Segundo plano ACTIVADO');
 }
 
 async function stopBackground(){
@@ -216,12 +212,13 @@ async function stopBackground(){
   document.getElementById('bg-label').textContent = 'Fondo: OFF';
   document.getElementById('bg-btn').textContent = '▶ Fondo';
   document.getElementById('bg-btn').classList.remove('active');
-  addLog('⏹ Modo segundo plano desactivado');
+  addLog('⏹ Segundo plano desactivado');
 }
 
 // ── Presets UI ──────────────────────────────────────
 function updatePresetSelect() {
     const select = document.getElementById('preset-select');
+    if(!window.MidiHubExtras) return;
     const presets = window.MidiHubExtras.loadPresets();
     select.innerHTML = '<option value="">Presets...</option>';
     Object.keys(presets).forEach(name => {
@@ -233,7 +230,7 @@ function updatePresetSelect() {
 }
 
 function uiSavePreset() {
-    const name = prompt("Nombre del preset:");
+    const name = prompt("Nombre para este ruteo:");
     if (!name) return;
     window.MidiHubExtras.savePreset(name, connections, inputs, outputs);
     updatePresetSelect();
@@ -244,7 +241,7 @@ function uiDeletePreset() {
     const select = document.getElementById('preset-select');
     const name = select.value;
     if (!name) return;
-    if (confirm(`¿Borrar preset "${name}"?`)) {
+    if (confirm(`¿Borrar ruteo "${name}"?`)) {
         window.MidiHubExtras.deletePreset(name);
         updatePresetSelect();
     }
@@ -260,9 +257,9 @@ document.getElementById('preset-select').onchange = (e) => {
         drawConnections();
         renderConnectionTags();
         renderDevices();
-        addLog(`✓ Preset "${name}" cargado (${resolved.length} conex.)`);
+        addLog(`✓ Cargado: ${name}`);
     } else {
-        alert("No se encontraron los dispositivos de este preset. Asegurate de que estén conectados.");
+        alert("No se pudieron reconectar los equipos del preset. ¿Están enchufados?");
     }
 };
 
@@ -271,21 +268,21 @@ async function requestMidi(){
   try{
     midiAccess = await navigator.requestMIDIAccess({sysex:false});
     document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-text').textContent='Conectado';
+    document.getElementById('status-text').textContent='MIDI OK';
     midiAccess.onstatechange=()=>refreshDevices();
     refreshDevices();
     updatePresetSelect();
-    addLog('✓ Acceso MIDI obtenido');
+    addLog('✓ MIDI Conectado');
   }catch(e){
-    alert('No se pudo acceder al MIDI:\n'+e.message);
-    addLog('✗ Error MIDI: '+e.message);
+    alert('Error MIDI: '+e.message);
+    addLog('✗ Error: '+e.message);
   }
 }
 
 function refreshDevices(){
   if(!midiAccess) return;
   inputs.clear(); outputs.clear();
-  window.MidiHubExtras.resetPortCounters();
+  if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
   midiAccess.inputs.forEach(i=>inputs.set(i.id,i));
   midiAccess.outputs.forEach(o=>outputs.set(o.id,o));
   connections=connections.filter(c=>inputs.has(c.inputId)&&outputs.has(c.outputId));
@@ -294,12 +291,12 @@ function refreshDevices(){
 
 function renderDevices(){
   const il=document.getElementById('inputs-list'), ol=document.getElementById('outputs-list');
-  window.MidiHubExtras.resetPortCounters(); // Reset before each render
-  if(inputs.size===0){ il.innerHTML='<div class="no-devices">Sin entradas</div>'; }
+  if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
+  if(inputs.size===0){ il.innerHTML='<div class="no-devices">No hay fuentes</div>'; }
   else{ il.innerHTML=''; inputs.forEach(i=>il.appendChild(createCard(i,'input'))); }
   
-  window.MidiHubExtras.resetPortCounters(); // Reset for outputs
-  if(outputs.size===0){ ol.innerHTML='<div class="no-devices">Sin salidas</div>'; }
+  if(window.MidiHubExtras) window.MidiHubExtras.resetPortCounters();
+  if(outputs.size===0){ ol.innerHTML='<div class="no-devices">No hay destinos</div>'; }
   else{ ol.innerHTML=''; outputs.forEach(o=>ol.appendChild(createCard(o,'output'))); }
 }
 
@@ -308,19 +305,25 @@ function createCard(device,type){
   card.className='device-card'; card.id='card-'+device.id;
   const isActive=connections.some(c=>type==='input'?c.inputId===device.id:c.outputId===device.id);
   
-  const info = window.MidiHubExtras.getFriendlyName(device.name);
-  const name = info.name;
-  const subLabel = info.sub;
-  const emoji = info.emoji;
+  let name = device.name;
+  let subLabel = "Puerto MIDI";
+  let emoji = "🎵";
+  
+  if(window.MidiHubExtras) {
+    const info = window.MidiHubExtras.getFriendlyName(device.name);
+    name = info.name;
+    subLabel = info.sub;
+    emoji = info.emoji;
+  }
 
   card.innerHTML=`<div class="device-header"><div class="device-icon">${emoji}</div>
-    <div style="display:flex;flex-direction:column">
-        <div class="device-name">${name}</div>
-        <div style="font-size:8px;color:var(--text-muted)">${subLabel}</div>
+    <div style="display:flex;flex-direction:column; overflow:hidden">
+        <div class="device-name" title="${device.name}">${name}</div>
+        <div style="font-size:9px;color:var(--text-muted);font-weight:bold">${subLabel}</div>
     </div>
     </div>
     <div class="activity-bar"><div class="activity-fill" id="act-${device.id}"></div></div>
-    <div class="port-row"><span class="port-label">${type==='input'?'OUT →':'→ IN'}</span>
+    <div class="port-row"><span class="port-label">${type==='input'?'SALIDA del equipo':'ENTRADA del equipo'}</span>
     <button class="port-btn ${isActive?'active':''}" id="port-${device.id}"
       onclick="${type==='input'?'selectInput':'selectOutput'}('${device.id}')">●</button></div>`;
   return card;
@@ -337,9 +340,9 @@ function selectInput(id){
 
 function selectOutput(id){
   if(!pendingInput) return;
-  if(connections.find(c=>c.inputId===pendingInput&&c.outputId===id)){ alert('Conexión ya existe.'); return; }
+  if(connections.find(c=>c.inputId===pendingInput&&c.outputId===id)){ alert('Ya conectados.'); return; }
   connections.push({inputId:pendingInput,outputId:id});
-  addLog(`Conexión: ${inputs.get(pendingInput)?.name} → ${outputs.get(id)?.name}`);
+  addLog(`Ruta: ${inputs.get(pendingInput)?.name} → ${outputs.get(id)?.name}`);
   pendingInput=null;
   document.getElementById('connecting-hint').classList.remove('visible');
   document.querySelectorAll('.port-btn').forEach(b=>b.style.animation='');
@@ -348,7 +351,7 @@ function selectOutput(id){
 
 function removeConnection(inputId,outputId){
   connections=connections.filter(c=>!(c.inputId===inputId&&c.outputId===outputId));
-  addLog(`Desconectado: ${inputs.get(inputId)?.name} → ${outputs.get(outputId)?.name}`);
+  addLog(`Corte: ${inputs.get(inputId)?.name} → ${outputs.get(outputId)?.name}`);
   attachListeners(); drawConnections(); renderConnectionTags(); renderDevices();
 }
 
@@ -434,9 +437,10 @@ function addLog(msg,type=''){
 window.addEventListener('resize',drawConnections);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pendingInput=null; document.getElementById('connecting-hint').classList.remove('visible'); document.querySelectorAll('.port-btn').forEach(b=>b.style.animation=''); }});
 
-if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='No MIDI'; }
+if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='Sin MIDI'; }
 else{ document.getElementById('status-text').textContent='Listo'; }
 </script>
+
 
 </body>
 </html>
