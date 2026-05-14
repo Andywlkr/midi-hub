@@ -106,15 +106,21 @@ input:checked + .slider:before{transform:translateX(18px)}
 .presets-ui{display:flex;gap:4px;align-items:center}
 #preset-select{max-width:120px; text-overflow:ellipsis}
 .btn-icon-alt{display:none}
+.status-bar{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);background:rgba(0,0,0,0.2);padding:4px 8px;border-radius:12px}
+.status-dot{width:6px;height:6px;background:#555;border-radius:50%;transition:background .3s}
+.status-dot.connected{background:var(--green);box-shadow:0 0 8px var(--green)}
 @media (max-width: 600px) {
   header{padding:8px 10px; height: 50px;}
   .logo-text{display:none}
+  .status-bar{padding:4px; background:none}
+  #status-text{display:none}
   .btn-text{display:none}
   .btn-icon-alt{display:inline}
   #preset-select{max-width:85px; font-size: 10px; padding: 4px 8px;}
   .header-right{gap:4px}
   .btn{padding: 6px 10px;}
 }
+
 </style>
 </head>
 <body>
@@ -129,6 +135,10 @@ input:checked + .slider:before{transform:translateX(18px)}
   <div class="logo">
     <div class="logo-icon">🎛</div>
     <span class="logo-text">MIDI Hub</span>
+  </div>
+  <div class="status-bar" id="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">Buscando...</span>
   </div>
   <div class="header-right">
     <div class="presets-ui" id="presets-ui">
