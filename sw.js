@@ -1,4 +1,4 @@
-const CACHE = 'midi-hub-v4';
+const CACHE = 'midi-hub-v5';
 const ASSETS = ['./', './index.html', './manifest.json', './extras.js'];
 
 self.addEventListener('install', e => {
