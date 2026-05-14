@@ -66,7 +66,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .conn-remove:hover { color:#ff0000; transform:scale(1.2); }
 .no-devices{text-align:center;color:var(--text-muted);font-size:11px;padding:16px;border:1px dashed var(--border);border-radius:10px;margin:4px}
 .midi-log { position:fixed; bottom:0; left:0; right:0; height:120px; background:rgba(10,10,15,0.98); border-top:1px solid var(--accent); 
-  color:#0f0; font-family:monospace; font-size:9px; padding:10px; overflow-y:auto; z-index:100; transform:translateY(100%); transition:transform 0.3s ease; word-wrap:break-word; white-space:pre-wrap; line-height:1.2; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
+  color:#0f0; font-family:monospace; font-size:11px; padding:10px; overflow-y:auto; z-index:100; transform:translateY(100%); transition:transform 0.3s ease; word-wrap:break-word; white-space:pre-wrap; line-height:1.2; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
 .midi-log.visible { transform:translateY(0); }
 .log-entry{color:var(--text-muted);padding:1px 0; border-bottom: 1px solid rgba(255,255,255,0.03);}
 .log-entry.note-on{color:var(--green)}
@@ -205,9 +205,9 @@ window.onerror = function(msg, url, line) {
 };
 
 // ── Service Worker & Cache ──────────────────────────
-const APP_VERSION = '2.0.1-centered-log';
+const APP_VERSION = '2.0.2-log-boost';
 if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=6').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=7').then(reg => {
     reg.onupdatefound = () => {
       const installingWorker = reg.installing;
       installingWorker.onstatechange = () => {
@@ -758,7 +758,7 @@ function toggleLog(){
 }
 
 function addLog(msg,type=''){
-  if(logEntries>200){ document.getElementById('midi-log').innerHTML=''; logEntries=0; }
+  if(logEntries>400){ document.getElementById('midi-log').innerHTML=''; logEntries=0; }
   const el=document.createElement('div'); el.className='log-entry '+type;
   const now=new Date();
   el.textContent=`[${now.toLocaleTimeString()}] ${msg}`;
