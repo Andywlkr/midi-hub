@@ -138,11 +138,11 @@ input:checked + .slider:before{transform:translateX(18px)}
   </div>
   <div class="status-bar" id="status-bar">
     <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">Buscando...</span>
+    <span id="status-text">...</span>
   </div>
   <div class="header-right">
-    <div class="presets-ui" id="presets-ui">
-        <select class="btn" id="preset-select"><option value="">Presets...</option></select>
+    <div class="presets-ui" id="presets-ui" style="display:flex; flex-shrink: 0;">
+        <select class="btn" id="preset-select" style="min-width:70px; max-width:100px;"><option value="">Presets...</option></select>
         <button class="btn" onclick="uiSavePreset()" title="Guardar Preset">💾</button>
         <button class="btn" onclick="uiDeletePreset()" title="Borrar Preset">🗑</button>
     </div>
@@ -512,16 +512,18 @@ async function requestMidi(){
     return; 
   }
   try{
-    midiAccess = await navigator.requestMIDIAccess({sysex:false});
-    document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-text').textContent='MIDI OK';
+    midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+    midiAccess.onstatechange = refreshDevices;
+    refreshDevices();
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    if(dot) dot.classList.add('connected');
+    if(txt) txt.textContent = 'Listo';
     
     // Cambiar botón a modo reset
     const btn = document.querySelector('button[onclick="requestMidi()"]');
     if(btn) { btn.classList.add('active'); btn.textContent = '🔌 Reset Ruteo'; }
 
-    midiAccess.onstatechange=()=>refreshDevices();
-    refreshDevices();
     updatePresetSelect();
     addLog('✓ MIDI Conectado');
   }catch(e){
@@ -789,8 +791,25 @@ window.addEventListener('resize',drawConnections);
 document.querySelectorAll('.column').forEach(col => col.addEventListener('scroll', drawConnections));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pendingInput=null; document.getElementById('connecting-hint').classList.remove('visible'); document.querySelectorAll('.port-btn').forEach(b=>b.style.animation=''); }});
 
-if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='Sin MIDI'; }
-else{ document.getElementById('status-text').textContent='Listo'; }
+const APP_VERSION = '2.0.3-mobile-fix';
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js?v=8').then(reg => {
+    reg.onupdatefound = () => {
+      const installingWorker = reg.installing;
+      installingWorker.onstatechange = () => {
+        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          window.location.reload(); 
+        }
+      };
+    };
+  }).catch(()=>{});
+}
+// ... [rest of script] ...
+const stxt = document.getElementById('status-text');
+if(stxt) {
+  if(!navigator.requestMIDIAccess) stxt.textContent='Sin MIDI';
+  else stxt.textContent='Listo';
+}
 </script>
 
 </body>
