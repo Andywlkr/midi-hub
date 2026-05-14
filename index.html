@@ -638,7 +638,6 @@ function handleMidiEvent(event, inputId) {
   const outIds = connections.filter(c => c.inputId === inputId).map(c => c.outputId);
   if (outIds.length === 0) return;
   
-  const data = event.data;
   const outNames = [];
   outIds.forEach(outId => {
     const out = outputs.get(outId);
