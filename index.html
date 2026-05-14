@@ -224,9 +224,9 @@ window.onerror = function(msg, url, line) {
 };
 
 // ── Service Worker & Cache ──────────────────────────
-const APP_VERSION = '2.0.2-log-boost';
+const APP_VERSION = '2.0.4-stable';
 if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=7').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=9').then(reg => {
     reg.onupdatefound = () => {
       const installingWorker = reg.installing;
       installingWorker.onstatechange = () => {
@@ -791,20 +791,6 @@ window.addEventListener('resize',drawConnections);
 document.querySelectorAll('.column').forEach(col => col.addEventListener('scroll', drawConnections));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pendingInput=null; document.getElementById('connecting-hint').classList.remove('visible'); document.querySelectorAll('.port-btn').forEach(b=>b.style.animation=''); }});
 
-const APP_VERSION = '2.0.3-mobile-fix';
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=8').then(reg => {
-    reg.onupdatefound = () => {
-      const installingWorker = reg.installing;
-      installingWorker.onstatechange = () => {
-        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          window.location.reload(); 
-        }
-      };
-    };
-  }).catch(()=>{});
-}
-// ... [rest of script] ...
 const stxt = document.getElementById('status-text');
 if(stxt) {
   if(!navigator.requestMIDIAccess) stxt.textContent='Sin MIDI';
