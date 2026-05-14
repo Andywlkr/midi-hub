@@ -1,5 +1,5 @@
-const CACHE = 'midi-hub-v5';
-const ASSETS = ['./', './index.html', './manifest.json', './extras.js'];
+const CACHE = 'midi-hub-v6';
+const ASSETS = ['./index.html', './extras.js', './manifest.json'];
 
 self.addEventListener('install', e => {
   self.skipWaiting();
