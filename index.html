@@ -103,6 +103,18 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background-color:#fff;transition:.4s;border-radius:50%}
 input:checked + .slider{background-color:var(--accent)}
 input:checked + .slider:before{transform:translateX(18px)}
+.presets-ui{display:flex;gap:4px;align-items:center}
+#preset-select{max-width:120px; text-overflow:ellipsis}
+.btn-icon-alt{display:none}
+@media (max-width: 600px) {
+  header{padding:8px 10px; height: 50px;}
+  .logo-text{display:none}
+  .btn-text{display:none}
+  .btn-icon-alt{display:inline}
+  #preset-select{max-width:85px; font-size: 10px; padding: 4px 8px;}
+  .header-right{gap:4px}
+  .btn{padding: 6px 10px;}
+}
 </style>
 </head>
 <body>
@@ -116,22 +128,18 @@ input:checked + .slider:before{transform:translateX(18px)}
 <header>
   <div class="logo">
     <div class="logo-icon">🎛</div>
-    MIDI Hub
-  </div>
-  <div class="status-bar">
-    <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">Buscando MIDI...</span>
+    <span class="logo-text">MIDI Hub</span>
   </div>
   <div class="header-right">
-    <div class="presets-ui" id="presets-ui" style="display:flex;gap:4px;margin-right:8px;align-items:center;">
-        <select class="btn" id="preset-select" style="max-width:140px"><option value="">Presets...</option></select>
+    <div class="presets-ui" id="presets-ui">
+        <select class="btn" id="preset-select"><option value="">Presets...</option></select>
         <button class="btn" onclick="uiSavePreset()" title="Guardar Preset">💾</button>
         <button class="btn" onclick="uiDeletePreset()" title="Borrar Preset">🗑</button>
     </div>
-    <button class="btn" id="bg-btn" onclick="toggleBackground()" title="Seguir ruteando con pantalla apagada">▶ Fondo</button>
-    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲 Instalar App</button>
+    <button class="btn" id="bg-btn" onclick="toggleBackground()" title="Seguir ruteando con pantalla apagada"><span class="btn-text">▶ Fondo</span><span class="btn-icon-alt">▶</span></button>
+    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲</button>
     <button class="btn" onclick="refreshDevices()" title="Refrescar dispositivos">↺</button>
-    <button class="btn primary" onclick="requestMidi()">Conectar</button>
+    <button class="btn primary" onclick="requestMidi()"><span class="btn-text">Conectar</span><span class="btn-icon-alt">🔌</span></button>
   </div>
 </header>
 
