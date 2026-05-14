@@ -167,13 +167,19 @@ input:checked + .slider:before{transform:translateX(18px)}
       <button class="btn" onclick="closeFilters()">Listo</button>
     </div>
     
-    <div class="filter-group-title">Canales MIDI (Input)</div>
+    <div class="filter-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="filter-group-title" style="margin-bottom:0">Canales MIDI (1-16)</div>
+      <div style="display:flex;gap:5px">
+        <button class="btn" style="padding:4px 8px;font-size:9px" onclick="setAllChannels(true)">Todos</button>
+        <button class="btn" style="padding:4px 8px;font-size:9px" onclick="setAllChannels(false)">Ninguno</button>
+      </div>
+    </div>
     <div class="filter-grid" id="ch-grid">
       <!-- 16 buttons -->
     </div>
 
     <div class="filter-group">
-      <div class="filter-group-title">Mensajes de Voz</div>
+      <div class="filter-group-title">Mensajes</div>
       <div class="filter-row"><span class="filter-label">Notas On/Off</span><label class="switch"><input type="checkbox" id="f-notes" onchange="updateFilterParam('notes',this.checked)"><span class="slider"></span></label></div>
       <div class="filter-row"><span class="filter-label">Control Change (CC)</span><label class="switch"><input type="checkbox" id="f-cc" onchange="updateFilterParam('cc',this.checked)"><span class="slider"></span></label></div>
       <div class="filter-row"><span class="filter-label">Pitch Bend</span><label class="switch"><input type="checkbox" id="f-pitchBend" onchange="updateFilterParam('pitchBend',this.checked)"><span class="slider"></span></label></div>
@@ -290,6 +296,16 @@ function toggleChannel(ch, btn) {
   const f = deviceFilters[currentFilterDeviceId];
   f.channels[ch] = !f.channels[ch];
   btn.classList.toggle('active', f.channels[ch]);
+}
+
+function setAllChannels(val) {
+  if(!currentFilterDeviceId) return;
+  const f = deviceFilters[currentFilterDeviceId];
+  f.channels = new Array(16).fill(val);
+  // Refrescar los botones del grid
+  document.querySelectorAll('.ch-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', val);
+  });
 }
 
 function updateFilterParam(key, val) {
