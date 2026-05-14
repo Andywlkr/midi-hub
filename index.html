@@ -206,9 +206,9 @@ window.onerror = function(msg, url, line) {
 };
 
 // ── Service Worker & Cache ──────────────────────────
-const APP_VERSION = '2.0.2-log-boost';
+const APP_VERSION = '2.0.6-joya';
 if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=7').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=11').then(reg => {
     reg.onupdatefound = () => {
       const installingWorker = reg.installing;
       installingWorker.onstatechange = () => {
