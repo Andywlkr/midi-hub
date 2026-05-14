@@ -66,8 +66,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .conn-remove:hover { color:#ff0000; transform:scale(1.2); }
 .no-devices{text-align:center;color:var(--text-muted);font-size:11px;padding:16px;border:1px dashed var(--border);border-radius:10px;margin:4px}
 .midi-log { position:fixed; bottom:0; left:0; right:0; height:120px; background:rgba(10,10,15,0.98); border-top:1px solid var(--accent); 
-  color:#0f0; font-family:monospace; font-size:11px; padding:10px; overflow-y:auto; z-index:100; transform:translateY(100%); transition:transform 0.3s ease; word-wrap:break-word; white-space:pre-wrap; line-height:1.2; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
-@media (max-width: 600px) { .midi-log { font-size: 9px; height: 100px; } .toggle-log.log-active { bottom: 110px; } }
+  color:#0f0; font-family:monospace; font-size:9px; padding:10px; overflow-y:auto; z-index:100; transform:translateY(100%); transition:transform 0.3s ease; word-wrap:break-word; white-space:pre-wrap; line-height:1.2; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
 .midi-log.visible { transform:translateY(0); }
 .log-entry{color:var(--text-muted);padding:1px 0; border-bottom: 1px solid rgba(255,255,255,0.03);}
 .log-entry.note-on{color:var(--green)}
@@ -103,24 +102,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .slider:before{position:absolute;content:"";height:16px;width:16px;left:3px;bottom:3px;background-color:#fff;transition:.4s;border-radius:50%}
 input:checked + .slider{background-color:var(--accent)}
 input:checked + .slider:before{transform:translateX(18px)}
-.presets-ui{display:flex;gap:4px;align-items:center}
-#preset-select{max-width:120px; text-overflow:ellipsis}
-.btn-icon-alt{display:none}
-.status-bar{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);background:rgba(0,0,0,0.2);padding:4px 8px;border-radius:12px}
-.status-dot{width:6px;height:6px;background:#555;border-radius:50%;transition:background .3s}
-.status-dot.connected{background:var(--green);box-shadow:0 0 8px var(--green)}
-@media (max-width: 600px) {
-  header{padding:8px 10px; height: 50px;}
-  .logo-text{display:none}
-  .status-bar{padding:4px; background:none}
-  #status-text{display:none}
-  .btn-text{display:none}
-  .btn-icon-alt{display:inline}
-  #preset-select{max-width:85px; font-size: 10px; padding: 4px 8px;}
-  .header-right{gap:4px}
-  .btn{padding: 6px 10px;}
-}
-
 </style>
 </head>
 <body>
@@ -134,22 +115,22 @@ input:checked + .slider:before{transform:translateX(18px)}
 <header>
   <div class="logo">
     <div class="logo-icon">🎛</div>
-    <span class="logo-text">MIDI Hub</span>
+    MIDI Hub
   </div>
-  <div class="status-bar" id="status-bar">
+  <div class="status-bar">
     <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">...</span>
+    <span id="status-text">Buscando MIDI...</span>
   </div>
   <div class="header-right">
-    <div class="presets-ui" id="presets-ui" style="display:flex; flex-shrink: 0;">
-        <select class="btn" id="preset-select" style="min-width:70px; max-width:100px;"><option value="">Presets...</option></select>
+    <div class="presets-ui" id="presets-ui" style="display:flex;gap:4px;margin-right:8px;align-items:center;">
+        <select class="btn" id="preset-select" style="max-width:140px"><option value="">Presets...</option></select>
         <button class="btn" onclick="uiSavePreset()" title="Guardar Preset">💾</button>
         <button class="btn" onclick="uiDeletePreset()" title="Borrar Preset">🗑</button>
     </div>
-    <button class="btn" id="bg-btn" onclick="toggleBackground()" title="Seguir ruteando con pantalla apagada"><span class="btn-text">▶ Fondo</span><span class="btn-icon-alt">▶</span></button>
-    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲</button>
+    <button class="btn" id="bg-btn" onclick="toggleBackground()" title="Seguir ruteando con pantalla apagada">▶ Fondo</button>
+    <button class="btn" id="manual-install-btn" style="display:none" onclick="installPWA()">📲 Instalar App</button>
     <button class="btn" onclick="refreshDevices()" title="Refrescar dispositivos">↺</button>
-    <button class="btn primary" onclick="requestMidi()"><span class="btn-text">Conectar</span><span class="btn-icon-alt">🔌</span></button>
+    <button class="btn primary" onclick="requestMidi()">Conectar</button>
   </div>
 </header>
 
@@ -224,14 +205,13 @@ window.onerror = function(msg, url, line) {
 };
 
 // ── Service Worker & Cache ──────────────────────────
-const APP_VERSION = '2.0.4-stable';
 if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=9').then(reg => {
+  navigator.serviceWorker.register('sw.js').then(reg => {
     reg.onupdatefound = () => {
       const installingWorker = reg.installing;
       installingWorker.onstatechange = () => {
         if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          window.location.reload(); 
+          if(confirm("Nueva actualización disponible. ¿Cargar ahora?")) window.location.reload();
         }
       };
     };
@@ -512,18 +492,16 @@ async function requestMidi(){
     return; 
   }
   try{
-    midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-    midiAccess.onstatechange = refreshDevices;
-    refreshDevices();
-    const dot = document.getElementById('status-dot');
-    const txt = document.getElementById('status-text');
-    if(dot) dot.classList.add('connected');
-    if(txt) txt.textContent = 'Listo';
+    midiAccess = await navigator.requestMIDIAccess({sysex:false});
+    document.getElementById('status-dot').classList.add('connected');
+    document.getElementById('status-text').textContent='MIDI OK';
     
     // Cambiar botón a modo reset
     const btn = document.querySelector('button[onclick="requestMidi()"]');
     if(btn) { btn.classList.add('active'); btn.textContent = '🔌 Reset Ruteo'; }
 
+    midiAccess.onstatechange=()=>refreshDevices();
+    refreshDevices();
     updatePresetSelect();
     addLog('✓ MIDI Conectado');
   }catch(e){
@@ -779,7 +757,7 @@ function toggleLog(){
 }
 
 function addLog(msg,type=''){
-  if(logEntries>400){ document.getElementById('midi-log').innerHTML=''; logEntries=0; }
+  if(logEntries>200){ document.getElementById('midi-log').innerHTML=''; logEntries=0; }
   const el=document.createElement('div'); el.className='log-entry '+type;
   const now=new Date();
   el.textContent=`[${now.toLocaleTimeString()}] ${msg}`;
@@ -791,11 +769,8 @@ window.addEventListener('resize',drawConnections);
 document.querySelectorAll('.column').forEach(col => col.addEventListener('scroll', drawConnections));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pendingInput){ pendingInput=null; document.getElementById('connecting-hint').classList.remove('visible'); document.querySelectorAll('.port-btn').forEach(b=>b.style.animation=''); }});
 
-const stxt = document.getElementById('status-text');
-if(stxt) {
-  if(!navigator.requestMIDIAccess) stxt.textContent='Sin MIDI';
-  else stxt.textContent='Listo';
-}
+if(!navigator.requestMIDIAccess){ document.getElementById('status-text').textContent='Sin MIDI'; }
+else{ document.getElementById('status-text').textContent='Listo'; }
 </script>
 
 </body>
