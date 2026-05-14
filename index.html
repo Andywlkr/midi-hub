@@ -235,23 +235,28 @@ function isMidiAllowed(data, filter) {
   const s = data[0];
   // Mensajes de sistema / tiempo real
   if(s >= 0xF8) {
-    if(s === 0xF8) return filter.clock;
-    if(s === 0xFA || s === 0xFB || s === 0xFC) return filter.transport;
+    if(s === 0xF8) return filter.clock !== false;
+    if(s === 0xFA || s === 0xFB || s === 0xFC) return filter.transport !== false;
     return true;
   }
   if(s >= 0xF0) {
-    if(s === 0xF0) return filter.sysex;
+    if(s === 0xF0) return filter.sysex !== false;
     return true;
   }
   // Mensajes de canal
   const type = s & 0xF0;
   const ch = s & 0x0F;
-  if(!filter.channels[ch]) return false;
-  if(type === 0x90 || type === 0x80) return filter.notes;
-  if(type === 0xB0) return filter.cc;
-  if(type === 0xE0) return filter.pitchBend;
-  if(type === 0xA0 || type === 0xD0) return filter.aftertouch;
-  if(type === 0xC0) return filter.programChange;
+  
+  // Si el canal está desactivado, bloqueamos todo lo que sea de canal
+  if(filter.channels && filter.channels[ch] === false) return false;
+  
+  // Filtros específicos por tipo (si no existe el parámetro, permitimos por defecto)
+  if(type === 0x90 || type === 0x80) return filter.notes !== false;
+  if(type === 0xB0) return filter.cc !== false;
+  if(type === 0xE0) return filter.pitchBend !== false;
+  if(type === 0xA0 || type === 0xD0) return filter.aftertouch !== false;
+  if(type === 0xC0) return filter.programChange !== false;
+  
   return true;
 }
 
@@ -629,12 +634,7 @@ let lastMidiTime = 0;
 let lastMidiData = '';
 
 function handleMidiEvent(event, inputId) {
-  const now = performance.now();
-  const dataStr = event.data.join(',');
-  if (now - lastMidiTime < 2 && lastMidiData === dataStr) return;
-  lastMidiTime = now;
-  lastMidiData = dataStr;
-
+  const data = event.data;
   const outIds = connections.filter(c => c.inputId === inputId).map(c => c.outputId);
   if (outIds.length === 0) return;
   
